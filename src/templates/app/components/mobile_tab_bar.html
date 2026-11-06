@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% url 'up_next' as up_next_url %}
-{% url 'calendar' as calendar_url %}
+{% url 'upcoming' as upcoming_url %}
 {% url 'medialist' username=request.user.username media_type=MediaTypes.TV.value as shows_url %}
 {% url 'medialist' username=request.user.username media_type=MediaTypes.MOVIE.value as movies_url %}
 
@@ -18,8 +18,8 @@
       </a>
     </li>
     <li>
-      <a href="{{ calendar_url }}"
-         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if request.path == calendar_url %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
+      <a href="{{ upcoming_url }}"
+         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if request.path == upcoming_url %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
         {% include "app/icons/calendar.svg" with classes="w-6 h-6" %}
 
         <span>{% trans "Upcoming" %}</span>

@@ -10,6 +10,11 @@
            data-src="{{ item.image }}"
            src="{{ IMG_NONE }}">
     </a>
+    {% if poster_only %}
+      {% with user=target_user|default:user %}
+        {% include "app/components/progress_bar.html" with media=media user=user overlay=True only %}
+      {% endwith %}
+    {% endif %}
     {% with user=target_user|default:user %}
       {% if media.status %}
         <div class="absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md">
@@ -100,14 +105,17 @@
     {% endwith %}
   </div>
 
-  <div class="p-3">
-    <a href="{{ item|media_url }}"
-       class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1"
-       title="{{ title }}">{{ title }}</a>
-    {% if item.release_year %}
-      <div class="text-xs text-gray-400 mt-1">{{ item.release_year }}</div>
-    {% endif %}
-  </div>
+  {# Poster-only cards show the title only when there is no poster to identify the media #}
+  {% if not poster_only or item.image == IMG_NONE %}
+    <div class="p-3">
+      <a href="{{ item|media_url }}"
+         class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1"
+         title="{{ title }}">{{ title }}</a>
+      {% if item.release_year %}
+        <div class="text-xs text-gray-400 mt-1">{{ item.release_year }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
 
   {% if item.media_type == MediaTypes.EPISODE.value %}
     {% include "app/components/fill_track_episode.html" with request=request media=item episode=item episode_title=title csrf_token=csrf_token TRACK_TIME=TRACK_TIME only %}
@@ -142,7 +150,9 @@
       <div id="{% component_id 'history' item %}"></div>
     </div>
   </div>
-  {% with user=target_user|default:user %}
-    {% include "app/components/progress_bar.html" with media=media user=user only %}
-  {% endwith %}
+  {% if not poster_only %}
+    {% with user=target_user|default:user %}
+      {% include "app/components/progress_bar.html" with media=media user=user only %}
+    {% endwith %}
+  {% endif %}
 </div>

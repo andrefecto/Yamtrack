@@ -1,12 +1,18 @@
 {% load app_tags %}
+{% load i18n %}
 
+{# overlay: draw the bar across the bottom of the poster, over a dark track, and show caught-up media in their own colour #}
 {% if media.status and user.progress_bar %}
-  <div>
+  <div {% if overlay %}class="absolute inset-x-0 bottom-0 bg-black/60"{% endif %}>
     {% if media.status == 'In progress' %}
       {% if media.max_progress and media.max_progress > 0 %}
-        {% widthratio media.progress media.max_progress 100 as progress_width %}
-        <div class="{{ media.status|status_background_color }} h-1.25"
-             style="width: {{ progress_width }}%"></div>
+        {% if overlay and media.progress >= media.max_progress %}
+          <div class="bg-yellow-400 h-1.25 w-full" title="{% trans 'Caught up' %}"></div>
+        {% else %}
+          {% widthratio media.progress media.max_progress 100 as progress_width %}
+          <div class="{{ media.status|status_background_color }} h-1.25"
+               style="width: {{ progress_width }}%"></div>
+        {% endif %}
       {% else %}
         <div class="{{ media.status|status_background_color }} h-1.25 w-full"></div>
       {% endif %}

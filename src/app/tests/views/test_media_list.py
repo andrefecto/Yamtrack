@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import translation
@@ -232,3 +235,73 @@ class MediaListViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("media_list", response.context)
+
+
+class PosterOnlyCardTests(TestCase):
+    """Test the poster-only cards used with the mobile tab bar."""
+
+    overlay_marker = "absolute inset-x-0 bottom-0 bg-black/60"
+
+    def setUp(self):
+        """Create a user with one movie with a poster and one without."""
+        self.credentials = {"username": "test", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+
+        for media_id, title, image in (
+            ("278", "Poster Movie", "http://example.com/image.jpg"),
+            ("238", "No Poster Movie", settings.IMG_NONE),
+        ):
+            Movie.objects.create(
+                item=Item.objects.create(
+                    media_id=media_id,
+                    source=Sources.TMDB.value,
+                    media_type=MediaTypes.MOVIE.value,
+                    title=title,
+                    image=image,
+                ),
+                user=self.user,
+                status=Status.COMPLETED.value,
+                progress=1,
+            )
+        self.url = reverse(
+            "medialist",
+            kwargs={"username": "test", "media_type": MediaTypes.MOVIE.value},
+        )
+
+    def test_default_cards_keep_titles(self):
+        """Test cards keep titles and the bottom bar without the tab bar."""
+        response = self.client.get(self.url + "?layout=grid")
+
+        self.assertContains(response, 'title="Poster Movie">Poster Movie</a>')
+        self.assertNotContains(response, self.overlay_marker)
+
+    def test_poster_only_cards(self):
+        """Test the title only shows without a poster and the bar overlays it."""
+        self.user.mobile_tab_bar = True
+        self.user.save()
+
+        response = self.client.get(self.url + "?layout=grid")
+
+        self.assertNotContains(response, 'title="Poster Movie">Poster Movie</a>')
+        self.assertContains(
+            response,
+            'title="No Poster Movie">No Poster Movie</a>',
+        )
+        self.assertContains(response, self.overlay_marker, count=2)
+
+    def test_caught_up_bar(self):
+        """Test the overlay bar uses its own colour when caught up."""
+        context = {
+            "media": SimpleNamespace(status="In progress", progress=5, max_progress=5),
+            "user": SimpleNamespace(progress_bar=True),
+        }
+
+        overlay = render_to_string(
+            "app/components/progress_bar.html",
+            {**context, "overlay": True},
+        )
+        default = render_to_string("app/components/progress_bar.html", context)
+
+        self.assertIn("bg-yellow-400", overlay)
+        self.assertNotIn("bg-yellow-400", default)

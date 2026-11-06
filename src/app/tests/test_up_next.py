@@ -147,7 +147,7 @@ class UpNextTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Show A")
-        self.assertContains(response, "S01 · E01")
+        self.assertContains(response, "S01 | E01")
 
     def test_up_next_watch(self):
         """Test watching from Up Next records the episode and shows the next."""
@@ -162,7 +162,7 @@ class UpNextTests(TestCase):
                 item__episode_number=1,
             ).exists(),
         )
-        self.assertContains(response, "S01 · E02")
+        self.assertContains(response, "S01 | E02")
 
     def test_up_next_watch_finale_removes_row(self):
         """Test watching the last episode leaves nothing to render for the show."""

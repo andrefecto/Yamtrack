@@ -15,6 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from events import tasks
+from events import upcoming as upcoming_helpers
 from events.models import Event
 from users.models import User, WeekStartDayChoices
 
@@ -117,6 +118,19 @@ def calendar(request):
         "view_type": view_type,
     }
     return render(request, "events/calendar.html", context)
+
+
+@require_GET
+def upcoming(request):
+    """Display releases for the coming days, grouped by day."""
+    today = timezone.localdate()
+    context = {
+        "days": upcoming_helpers.get_upcoming(request.user, today),
+        "today": today,
+        "tomorrow": today + timedelta(days=1),
+        "upcoming_days": upcoming_helpers.UPCOMING_DAYS,
+    }
+    return render(request, "events/upcoming.html", context)
 
 
 @require_POST

@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from app.models import Item, MediaTypes, Sources
+from app.models import TV, Episode, Item, MediaTypes, Season, Sources, Status
 from events.models import Event
 from users.models import WeekStartDayChoices
 
@@ -547,3 +547,156 @@ class CalendarWeekStartDayTests(TestCase):
 
         self.assertIsNone(response.context["list_anchor_day"])
         self.assertNotIn('id="today"', response.content.decode())
+
+
+class UpcomingViewTests(TestCase):
+    """Tests for the upcoming releases view."""
+
+    def setUp(self):
+        """Create a user, a tracked season with releases, and a movie release."""
+        self.credentials = {"username": "testuser", "password": "testpassword"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+
+        self.today = timezone.localdate()
+        self.season_item = Item.objects.create(
+            media_id="100",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Show A",
+            image="http://example.com/season.jpg",
+            season_number=3,
+        )
+        movie_item = Item.objects.create(
+            media_id="200",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Movie B",
+            image="http://example.com/movie.jpg",
+        )
+        Event.objects.create(
+            item=self.season_item,
+            content_number=2,
+            datetime=self._at_noon(self.today),
+        )
+        Event.objects.create(
+            item=self.season_item,
+            content_number=3,
+            datetime=self._at_noon(self.today + timedelta(days=1)),
+        )
+        Event.objects.create(
+            item=movie_item,
+            datetime=self._at_noon(self.today + timedelta(days=5)),
+        )
+
+        events_patcher = patch(
+            "events.models.Event.objects.get_user_events",
+            return_value=Event.objects.order_by("datetime"),
+        )
+        self.mock_get_user_events = events_patcher.start()
+        self.addCleanup(events_patcher.stop)
+
+        metadata_patcher = patch(
+            "app.providers.services.get_media_metadata",
+            return_value={
+                "episodes": [
+                    {"episode_number": n, "name": f"Title {n}", "still_path": None}
+                    for n in (1, 2, 3)
+                ],
+            },
+        )
+        metadata_patcher.start()
+        self.addCleanup(metadata_patcher.stop)
+
+    def _at_noon(self, day):
+        return timezone.make_aware(
+            timezone.datetime(day.year, day.month, day.day, 12),
+        )
+
+    def test_upcoming_groups_releases_by_day(self):
+        """Test releases are grouped by day with episode details."""
+        response = self.client.get(reverse("upcoming"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "events/upcoming.html")
+        self.mock_get_user_events.assert_called_once_with(
+            self.user,
+            self.today,
+            self.today + timedelta(days=13),
+        )
+
+        days = response.context["days"]
+        self.assertEqual(
+            [day for day, _entries in days],
+            [
+                self.today,
+                self.today + timedelta(days=1),
+                self.today + timedelta(days=5),
+            ],
+        )
+        self.assertContains(response, "S03 | E02")
+        self.assertContains(response, "Title 2")
+        self.assertContains(response, "Movie B")
+        self.assertContains(response, "Today")
+        self.assertContains(response, "Tomorrow")
+
+    def test_upcoming_marks_watched_episodes(self):
+        """Test watched episodes have no watch button and others post to save."""
+        season = Season.objects.bulk_create(
+            [
+                Season(
+                    item=self.season_item,
+                    user=self.user,
+                    related_tv=TV.objects.bulk_create(
+                        [
+                            TV(
+                                item=Item.objects.create(
+                                    media_id="100",
+                                    source=Sources.TMDB.value,
+                                    media_type=MediaTypes.TV.value,
+                                    title="Show A",
+                                ),
+                                user=self.user,
+                                status=Status.IN_PROGRESS.value,
+                            ),
+                        ],
+                    )[0],
+                    status=Status.IN_PROGRESS.value,
+                ),
+            ],
+        )[0]
+        episode_item = Item.objects.create(
+            media_id="100",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Show A",
+            season_number=3,
+            episode_number=2,
+        )
+        Episode.save_base(
+            Episode(item=episode_item, related_season=season, end_date=timezone.now()),
+        )
+
+        response = self.client.get(reverse("upcoming"))
+
+        entries = [
+            entry
+            for _day, day_entries in response.context["days"]
+            for entry in day_entries
+        ]
+        watched = {
+            entry["release"].content_number: entry["watched"]
+            for entry in entries
+            if entry["is_episode"]
+        }
+        self.assertEqual(watched, {2: True, 3: False})
+        self.assertContains(response, reverse("episode_save"), count=1)
+
+    def test_upcoming_empty(self):
+        """Test the empty state when nothing is coming out."""
+        self.mock_get_user_events.return_value = Event.objects.none()
+
+        response = self.client.get(reverse("upcoming"))
+
+        self.assertEqual(response.context["days"], [])
+        self.assertContains(response, "in the next 14 days")

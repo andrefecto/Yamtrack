@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load app_tags %}
+{% load events_tags %}
+{% load i18n %}
+
+{% block title %}
+  {% trans "Upcoming" %} - Yamtrack
+{% endblock title %}
+
+{% block content %}
+  <div class="mx-auto max-w-2xl space-y-3">
+    <div class="text-center space-y-1 pb-3">
+      <h1 class="text-3xl font-bold">{% trans "Upcoming" %}</h1>
+      <a href="{% url 'calendar' %}"
+         class="text-sm text-indigo-400 hover:text-indigo-300">{% trans "Open full calendar" %}</a>
+    </div>
+
+    {% now "Y-m-d H:i" as now_value %}
+    {% url 'upcoming' as upcoming_url %}
+
+    {% for day, entries in days %}
+      <div class="flex justify-center pt-2">
+        <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide {% if day == today %}bg-indigo-600 text-white{% else %}bg-gray-600 text-gray-100{% endif %}">
+          {% if day == today %}
+            {% trans "Today" %}
+          {% elif day == tomorrow %}
+            {% trans "Tomorrow" %}
+          {% else %}
+            {% calendar_day_label day.day day.month day.year user %}
+          {% endif %}
+        </span>
+      </div>
+
+      {% for entry in entries %}
+        {% with release=entry.release %}
+          <div class="flex items-center gap-3 rounded-lg bg-[#2a2f35] p-2 shadow-lg">
+            <a href="{{ release.item|media_url }}" class="shrink-0">
+              <img alt="{{ release }}"
+                   class="lazyload rounded-md {% if entry.is_episode %}w-28 sm:w-40 aspect-video{% else %}w-12 aspect-2/3{% endif %} {% if entry.image != IMG_NONE %}object-cover{% endif %}"
+                   data-src="{{ entry.image }}"
+                   src="{{ IMG_NONE }}">
+            </a>
+
+            <a href="{{ release.item|media_url }}" class="min-w-0 flex-1 space-y-1">
+              {% if entry.is_episode %}
+                <span class="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-400 px-2 py-0.5 text-xs font-semibold uppercase text-gray-100">
+                  <span class="truncate">{{ release.item.title }}</span>
+                  {% include "app/icons/chevron-right.svg" with classes="w-3 h-3 shrink-0" %}
+                </span>
+                <p class="font-semibold text-gray-100">
+                  S{{ release.item.season_number|stringformat:"02d" }} | E{{ release.content_number|stringformat:"02d" }}
+                </p>
+                {% if entry.episode_title %}<p class="truncate text-sm text-gray-300">{{ entry.episode_title }}</p>{% endif %}
+              {% else %}
+                <p class="truncate font-semibold text-gray-100">{{ release.item }}</p>
+                <p class="text-sm">
+                  <span class="text-gray-400 me-2">{{ release.item.media_type|media_type_readable }}</span>
+                  {% if release.readable_content_number %}<span class="text-indigo-400">{{ release.readable_content_number }}</span>{% endif %}
+                </p>
+              {% endif %}
+            </a>
+
+            {% if entry.is_episode %}
+              {% if entry.watched %}
+                <span class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white"
+                      title="{% trans 'Watched' %}">
+                  {% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}
+                </span>
+              {% else %}
+                <button type="button"
+                        class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
+                        title="{% trans 'Mark as watched' %}"
+                        hx-post="{% url 'episode_save' %}?next={{ upcoming_url|urlencode }}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        hx-vals='{"media_id": "{{ release.item.media_id }}", "source": "{{ release.item.source }}", "season_number": "{{ release.item.season_number }}", "episode_number": "{{ release.content_number }}", "end_date": "{{ now_value }}", "notes": ""}'
+                        hx-disabled-elt="this">{% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}</button>
+              {% endif %}
+            {% endif %}
+          </div>
+        {% endwith %}
+      {% endfor %}
+    {% empty %}
+      <p class="text-center text-gray-400">
+        {% blocktrans trimmed count days=upcoming_days %}
+          Nothing you're tracking is coming out in the next day.
+        {% plural %}
+          Nothing you're tracking is coming out in the next {{ days }} days.
+        {% endblocktrans %}
+      </p>
+    {% endfor %}
+  </div>
+{% endblock content %}

@@ -4,6 +4,7 @@ from events import views
 
 urlpatterns = [
     path("calendar", views.calendar, name="calendar"),
+    path("upcoming", views.upcoming, name="upcoming"),
     path("reload_calendar", views.reload_calendar, name="reload_calendar"),
     path(
         "calendar/download/<str:token>",
