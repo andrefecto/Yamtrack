@@ -1,0 +1,23 @@
+{% load i18n %}
+
+{# Used in sections mode: grouped sections when no status filter is set, otherwise the regular grid #}
+{% if sections is not None %}
+  <div class="space-y-8">
+    {% for section in sections %}
+      <section id="section-{{ section.key }}">
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          {{ section.title }} <span class="text-gray-500">{{ section.items|length }}</span>
+        </h2>
+        <div class="media-grid">
+          {% for media in section.items %}
+            {% include "app/components/media_card.html" with media=media item=media.item title=media.item from_grid=True poster_only=True %}
+          {% endfor %}
+        </div>
+      </section>
+    {% empty %}
+      <p class="text-center text-gray-400">{% trans "No shows match your search." %}</p>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="media-grid">{% include "app/components/media_grid_items.html" %}</div>
+{% endif %}

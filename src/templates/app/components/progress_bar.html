@@ -1,24 +1,26 @@
 {% load app_tags %}
 {% load i18n %}
 
-{# overlay: draw the bar across the bottom of the poster, over a dark track, and show caught-up media in their own colour #}
+{# overlay: draw the bar across the bottom of the poster, over a dark track, show caught-up media in their own colour, and leave not-started media without a bar #}
 {% if media.status and user.progress_bar %}
-  <div {% if overlay %}class="absolute inset-x-0 bottom-0 bg-black/60"{% endif %}>
-    {% if media.status == 'In progress' %}
-      {% if media.max_progress and media.max_progress > 0 %}
-        {% if overlay and media.progress >= media.max_progress %}
-          <div class="bg-yellow-400 h-1.25 w-full" title="{% trans 'Caught up' %}"></div>
+  {% if not overlay or media.status != 'Planning' %}
+    <div {% if overlay %}class="absolute inset-x-0 bottom-0 bg-black/60"{% endif %}>
+      {% if media.status == 'In progress' %}
+        {% if media.max_progress and media.max_progress > 0 %}
+          {% if overlay and media.progress >= media.max_progress %}
+            <div class="bg-yellow-400 h-1.25 w-full" title="{% trans 'Caught up' %}"></div>
+          {% else %}
+            {% widthratio media.progress media.max_progress 100 as progress_width %}
+            <div class="{{ media.status|status_background_color }} h-1.25"
+                 style="width: {{ progress_width }}%"></div>
+          {% endif %}
         {% else %}
-          {% widthratio media.progress media.max_progress 100 as progress_width %}
-          <div class="{{ media.status|status_background_color }} h-1.25"
-               style="width: {{ progress_width }}%"></div>
+          <div class="{{ media.status|status_background_color }} h-1.25 w-full"></div>
         {% endif %}
       {% else %}
         <div class="{{ media.status|status_background_color }} h-1.25 w-full"></div>
       {% endif %}
-    {% else %}
-      <div class="{{ media.status|status_background_color }} h-1.25 w-full"></div>
-    {% endif %}
 
-  </div>
+    </div>
+  {% endif %}
 {% endif %}

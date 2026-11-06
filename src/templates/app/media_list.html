@@ -139,6 +139,8 @@
           {% endif %}
         </div>
       </div>
+    {% elif sections_mode %}
+      <div id="media-content">{% include "app/components/media_sections.html" %}</div>
     {% elif current_layout == "grid" %}
       <div class="media-grid">{% include "app/components/media_grid_items.html" %}</div>
     {% else %}

@@ -57,6 +57,10 @@ class TrackModalViewTests(TestCase):
         self.assertIn("media", response.context)
         self.assertEqual(response.context["media"], self.movie)
         self.assertEqual(response.context["return_url"], "/home")
+        self.assertEqual(
+            response.context["form"]["status"].value(),
+            Status.IN_PROGRESS.value,
+        )
 
     @patch("app.providers.services.get_media_metadata")
     def test_track_modal_view_new_media(self, mock_get_metadata):
@@ -90,4 +94,8 @@ class TrackModalViewTests(TestCase):
         self.assertEqual(
             response.context["form"].initial["media_type"],
             MediaTypes.MOVIE.value,
+        )
+        self.assertEqual(
+            response.context["form"].initial["status"],
+            Status.PLANNING.value,
         )

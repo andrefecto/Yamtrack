@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from app import config, helpers, history_processor
+from app import config, helpers, history_processor, media_sections
 from app import home as home_helpers
 from app import statistics as stats
 from app import up_next as up_next_helpers
@@ -274,14 +274,19 @@ def media_list(request, username, media_type):
         search=search_query,
     )
 
-    # Paginate results
-    items_per_page = 32
-    paginator = Paginator(media_queryset, items_per_page)
-    media_page = paginator.get_page(page)
-
-    BasicMedia.objects.annotate_max_progress(
-        media_page.object_list,
+    # With the mobile tab bar, the user's own shows grid is grouped into
+    # sections (Watching, Caught up, ...) when no status filter is applied
+    sections_mode = (
+        request.user == target_user
+        and request.user.mobile_tab_bar
+        and media_type == MediaTypes.TV.value
+        and layout == "grid"
+    )
+    media_page, sections = _get_media_list_page(
+        media_queryset,
         media_type,
+        page,
+        grouped=sections_mode and status_filter == MediaStatusChoices.ALL,
     )
 
     context = {
@@ -289,7 +294,15 @@ def media_list(request, username, media_type):
         "media_type_plural": app_tags.media_type_readable_plural(media_type).lower(),
         "media_list": media_page,
         "current_layout": layout,
-        "layout_class": ".media-grid" if layout == "grid" else "tbody",
+        "layout_class": (
+            "#media-content"
+            if sections_mode
+            else ".media-grid"
+            if layout == "grid"
+            else "tbody"
+        ),
+        "sections_mode": sections_mode,
+        "sections": sections,
         "current_sort": sort_filter,
         "current_status": status_filter,
         "sort_choices": MediaSortChoices.choices,
@@ -305,21 +318,41 @@ def media_list(request, username, media_type):
         # Filtering from empty list
         if request.headers.get("HX-Target") == "empty_list":
             # If still empty, keep user in the same page
-            if not media_page.object_list:
+            if not sections and not media_page.object_list:
                 return HttpResponse(status=204)
             response = HttpResponse()
             response["HX-Redirect"] = reverse(
                 "medialist", args=[target_user.username, media_type]
             )
             return response
-        if layout == "grid":
-            template_name = "app/components/media_grid_items.html"
-        else:
-            template_name = "app/components/media_table_items.html"
+        template_name = _get_media_list_partial(request, layout, sections_mode)
     else:
         template_name = "app/media_list.html"
 
     return render(request, template_name, context)
+
+
+def _get_media_list_page(media_queryset, media_type, page, *, grouped):
+    """Return the media to show and, when grouped, the TV sections."""
+    if grouped:
+        media = list(media_queryset)
+        BasicMedia.objects.annotate_max_progress(media, media_type)
+        return media, media_sections.build_tv_sections(media)
+
+    items_per_page = 32
+    media_page = Paginator(media_queryset, items_per_page).get_page(page)
+    BasicMedia.objects.annotate_max_progress(media_page.object_list, media_type)
+    return media_page, None
+
+
+def _get_media_list_partial(request, layout, sections_mode):
+    """Return the template for an HTMX update of the media list."""
+    # Infinite scroll always appends grid items, even in sections mode
+    if sections_mode and "page" not in request.GET:
+        return "app/components/media_sections.html"
+    if layout == "grid":
+        return "app/components/media_grid_items.html"
+    return "app/components/media_table_items.html"
 
 
 @require_GET
@@ -657,6 +690,9 @@ def track_modal(
         )["title"]
         if media_type == MediaTypes.SEASON.value:
             title += f" S{season_number}"
+        # Adding new media starts from "not started" rather than the model's
+        # Completed default, which suits imports but not manual tracking
+        initial_data["status"] = Status.PLANNING.value
 
     form = get_form_class(media_type)(instance=media, initial=initial_data)
 

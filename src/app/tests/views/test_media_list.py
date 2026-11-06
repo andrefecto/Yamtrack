@@ -305,3 +305,19 @@ class PosterOnlyCardTests(TestCase):
 
         self.assertIn("bg-yellow-400", overlay)
         self.assertNotIn("bg-yellow-400", default)
+
+    def test_not_started_has_no_overlay_bar(self):
+        """Test planned media get no bar on the poster, but keep the default one."""
+        context = {
+            "media": SimpleNamespace(status="Planning", progress=0, max_progress=10),
+            "user": SimpleNamespace(progress_bar=True),
+        }
+
+        overlay = render_to_string(
+            "app/components/progress_bar.html",
+            {**context, "overlay": True},
+        )
+        default = render_to_string("app/components/progress_bar.html", context)
+
+        self.assertNotIn("h-1.25", overlay)
+        self.assertIn("h-1.25", default)
