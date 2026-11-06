@@ -73,6 +73,41 @@ class SidebarViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.show_adult_titles)
 
+    def test_sidebar_post_mobile_tab_bar(self):
+        """Test POST request saves and clears the mobile tab bar preference."""
+        self.assertFalse(self.user.mobile_tab_bar)
+
+        self.client.post(reverse("preferences"), {"mobile_tab_bar": "on"})
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.mobile_tab_bar)
+
+        self.client.post(reverse("preferences"), {})
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.mobile_tab_bar)
+
+    def test_mobile_tab_bar_rendering(self):
+        """Test the tab bar replaces the sidebar toggle only when enabled."""
+        tab_bar_marker = '@click="isMobileMenuOpen = true"'
+        sidebar_toggle_marker = '@click="isMobileMenuOpen = !isMobileMenuOpen"'
+
+        response = self.client.get(reverse("preferences"))
+        self.assertNotContains(response, tab_bar_marker)
+        self.assertContains(response, sidebar_toggle_marker)
+
+        self.user.mobile_tab_bar = True
+        self.user.save()
+
+        response = self.client.get(reverse("preferences"))
+        self.assertContains(response, tab_bar_marker)
+        self.assertNotContains(response, sidebar_toggle_marker)
+        self.assertContains(
+            response,
+            reverse(
+                "medialist",
+                kwargs={"username": self.user.username, "media_type": "tv"},
+            ),
+        )
+
     def test_sidebar_post_demo_user(self):
         """Test POST request from a demo user to preferences."""
         self.user.is_demo = True

@@ -1,0 +1,52 @@
+{% load app_tags %}
+{% load i18n %}
+
+{% url 'up_next' as up_next_url %}
+{% url 'calendar' as calendar_url %}
+{% url 'medialist' username=request.user.username media_type=MediaTypes.TV.value as shows_url %}
+{% url 'medialist' username=request.user.username media_type=MediaTypes.MOVIE.value as movies_url %}
+
+{# Bottom tab bar for small screens, enabled by the mobile_tab_bar preference #}
+<nav class="fixed bottom-0 inset-x-0 z-20 lg:hidden bg-[#1a1d20] border-t border-[#2c3136] pb-[env(safe-area-inset-bottom)]">
+  <ul class="grid grid-cols-5 h-16">
+    <li>
+      <a href="{{ up_next_url }}"
+         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if request.path == up_next_url %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
+        {% include "app/icons/circle-check.svg" with classes="w-6 h-6" %}
+
+        <span>{% trans "Up Next" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ calendar_url }}"
+         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if request.path == calendar_url %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
+        {% include "app/icons/calendar.svg" with classes="w-6 h-6" %}
+
+        <span>{% trans "Upcoming" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ shows_url }}"
+         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if media_type == MediaTypes.TV.value or media_type == MediaTypes.SEASON.value %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
+        {% icon MediaTypes.TV.value is_active=False extra_classes="w-6 h-6" %}
+        <span>{% trans "Shows" %}</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ movies_url }}"
+         class="flex flex-col items-center justify-center h-full gap-1 text-[11px] {% if media_type == MediaTypes.MOVIE.value %}text-indigo-400{% else %}text-gray-400 hover-tap:text-white{% endif %}">
+        {% icon MediaTypes.MOVIE.value is_active=False extra_classes="w-6 h-6" %}
+        <span>{% trans "Movies" %}</span>
+      </a>
+    </li>
+    <li>
+      <button type="button"
+              @click="isMobileMenuOpen = true"
+              class="flex flex-col items-center justify-center w-full h-full gap-1 text-[11px] text-gray-400 hover-tap:text-white cursor-pointer">
+        {% include "app/icons/ellipsis.svg" with classes="w-6 h-6" %}
+
+        <span>{% trans "More" %}</span>
+      </button>
+    </li>
+  </ul>
+</nav>

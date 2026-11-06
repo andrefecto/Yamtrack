@@ -20,6 +20,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from app import config, helpers, history_processor
 from app import home as home_helpers
 from app import statistics as stats
+from app import up_next as up_next_helpers
 from app.forms import EpisodeForm, ManualItemForm, get_form_class
 from app.models import (
     TV,
@@ -157,6 +158,52 @@ def progress_edit(request, media_type, instance_id):
         request,
         "app/components/progress_changer.html",
         context,
+    )
+
+
+@require_GET
+def up_next(request):
+    """Show the next released episode of each show in progress."""
+    return render(
+        request,
+        "app/up_next.html",
+        {"entries": up_next_helpers.get_up_next(request.user)},
+    )
+
+
+@require_POST
+def up_next_watch(request, instance_id):
+    """Watch the next episode of a season and return the updated Up Next row."""
+    season = helpers.get_owned_media_or_404(
+        request,
+        MediaTypes.SEASON.value,
+        instance_id,
+    )
+    season.increase_progress()
+
+    # Watching a finale can start the next season, which takes over the row
+    seasons = (
+        Season.objects.filter(
+            related_tv=season.related_tv,
+            status=Status.IN_PROGRESS.value,
+            item__season_number__gt=0,
+        )
+        .select_related("item", "related_tv__item")
+        .prefetch_related(
+            Prefetch("episodes", queryset=Episode.objects.select_related("item")),
+        )
+        .order_by("item__season_number")
+    )
+    entry = None
+    for candidate in seasons:
+        entry = up_next_helpers.build_up_next_entry(candidate)
+        if entry is not None:
+            break
+
+    return render(
+        request,
+        "app/components/up_next_row.html",
+        {"entry": entry, "include_messages": True},
     )
 
 

@@ -317,6 +317,12 @@ class User(AbstractUser):
         help_text=_("Blur unseen episode images and descriptions"),
     )
 
+    mobile_tab_bar = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text=_("Use a bottom tab bar for navigation on mobile"),
+    )
+
     # Tracking settings
     quick_watch_date = models.CharField(
         max_length=20,

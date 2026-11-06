@@ -8,6 +8,12 @@ register_converter(converters.SourceChecker, "source")
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("up-next", views.up_next, name="up_next"),
+    path(
+        "up-next/watch/<int:instance_id>",
+        views.up_next_watch,
+        name="up_next_watch",
+    ),
     path("<str:username>/<media_type:media_type>", views.media_list, name="medialist"),
     path("search", views.media_search, name="search"),
     path(

@@ -1,0 +1,38 @@
+{% load app_tags %}
+{% load i18n %}
+
+{% if include_messages %}
+  {% include "app/components/messages/messages_oob.html" %}
+{% endif %}
+
+{% if entry %}
+  {% with season=entry.season %}
+    <div id="up-next-{{ season.related_tv.id }}"
+         class="flex items-center gap-3 rounded-lg bg-[#2a2f35] p-2 shadow-lg">
+      <a href="{{ season.item|media_url }}" class="shrink-0">
+        <img alt="{{ season }}"
+             class="lazyload w-28 sm:w-40 aspect-video rounded-md {% if entry.image != IMG_NONE %}object-cover{% endif %}"
+             data-src="{{ entry.image }}"
+             src="{{ IMG_NONE }}">
+      </a>
+
+      <a href="{{ season.item|media_url }}" class="min-w-0 flex-1">
+        <p class="truncate font-semibold text-gray-100">{{ season.item.title }}</p>
+        <p class="text-sm text-indigo-400">S{{ season.item.season_number|stringformat:"02d" }} · E{{ entry.episode_number|stringformat:"02d" }}</p>
+        {% if entry.episode_title %}<p class="truncate text-sm text-gray-400">{{ entry.episode_title }}</p>{% endif %}
+        <p class="text-xs text-gray-500">
+          {% blocktrans count remaining=entry.remaining_episodes %}{{ remaining }} episode left in season{% plural %}{{ remaining }} episodes left in season{% endblocktrans %}
+        </p>
+      </a>
+
+      <button type="button"
+              class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
+              title="{% trans 'Mark as watched' %}"
+              hx-post="{% url 'up_next_watch' season.id %}"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              hx-target="#up-next-{{ season.related_tv.id }}"
+              hx-swap="outerHTML"
+              hx-disabled-elt="this">{% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}</button>
+    </div>
+  {% endwith %}
+{% endif %}

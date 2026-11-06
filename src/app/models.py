@@ -1568,29 +1568,40 @@ class Season(Media):
         ]
         return max(dates) if dates else None
 
-    def increase_progress(self):
-        """Watch the next episode of the season."""
-        season_metadata = providers.services.get_media_metadata(
-            MediaTypes.SEASON.value,
-            self.item.media_id,
-            self.item.source,
-            [self.item.season_number],
-        )
+    def next_episode(self, season_metadata=None):
+        """Return the metadata of the next episode to watch, or None."""
+        if season_metadata is None:
+            season_metadata = providers.services.get_media_metadata(
+                MediaTypes.SEASON.value,
+                self.item.media_id,
+                self.item.source,
+                [self.item.season_number],
+            )
         episodes = season_metadata["episodes"]
+        if not episodes:
+            return None
 
         if self.progress == 0:
             # start watching from the first episode
-            next_episode_number = episodes[0]["episode_number"]
-        else:
-            next_episode_number = providers.tmdb.find_next_episode(
-                self.progress,
-                episodes,
-            )
+            return episodes[0]
+
+        next_episode_number = providers.tmdb.find_next_episode(
+            self.progress,
+            episodes,
+        )
+        for episode in episodes:
+            if episode["episode_number"] == next_episode_number:
+                return episode
+        return None
+
+    def increase_progress(self):
+        """Watch the next episode of the season."""
+        next_episode = self.next_episode()
 
         now = timezone.now().replace(second=0, microsecond=0)
 
-        if next_episode_number:
-            self.watch(next_episode_number, now)
+        if next_episode:
+            self.watch(next_episode["episode_number"], now)
         else:
             logger.info("No more episodes to watch.")
 
