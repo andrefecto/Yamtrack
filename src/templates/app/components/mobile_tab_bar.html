@@ -6,7 +6,7 @@
 {% url 'medialist' username=request.user.username media_type=MediaTypes.TV.value as shows_url %}
 {% url 'medialist' username=request.user.username media_type=MediaTypes.MOVIE.value as movies_url %}
 
-{# Bottom tab bar for small screens, enabled by the mobile_tab_bar preference #}
+{# Bottom tab bar for small screens, shown in show tracker mode #}
 <nav class="fixed bottom-0 inset-x-0 z-20 lg:hidden bg-[#1a1d20] border-t border-[#2c3136] pb-[env(safe-area-inset-bottom)]">
   <ul class="grid grid-cols-5 h-16">
     <li>

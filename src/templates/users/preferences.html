@@ -64,23 +64,23 @@
         </div>
       </div>
 
-      {# Mobile Tab Bar #}
+      {# Show Tracker Mode #}
       <div class="mb-5">
         <div class="flex items-center justify-between p-3 bg-[#39404b] rounded-md">
           <div class="flex-1">
             <div class="flex items-center text-gray-200 mb-1">
               {% include "app/icons/sidebar.svg" with classes="w-5 h-5 mr-2" %}
-              <span class="text-sm font-medium">{% trans "Mobile Tab Bar" %}</span>
+              <span class="text-sm font-medium">{% trans "Show Tracker Mode" %}</span>
             </div>
             <p class="text-xs text-gray-400 ml-7">
-              {% trans "On small screens, replace the sidebar menu with a tab bar at the bottom of the screen. The remaining pages stay available under More." %}
+              {% trans "An episode-focused layout for following shows: on small screens a bottom tab bar (Up Next, Upcoming, Shows, Movies, More) replaces the sidebar menu, and show grids are grouped by watch status. Turning it on also hides the hover overlay on touch devices and enables only TV shows, seasons and movies; you can change those settings again afterwards." %}
             </p>
           </div>
           <label class="relative inline-flex items-center cursor-pointer ml-4">
             <input class="sr-only peer"
                    type="checkbox"
-                   name="mobile_tab_bar"
-                   {% if user.mobile_tab_bar %}checked{% endif %}>
+                   name="show_tracker_mode"
+                   {% if user.show_tracker_mode %}checked{% endif %}>
             <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600">
             </div>
           </label>

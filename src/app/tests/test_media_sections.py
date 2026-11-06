@@ -103,16 +103,16 @@ class MediaListSectionsViewTests(TestCase):
             kwargs={"username": "test", "media_type": MediaTypes.TV.value},
         )
 
-    def test_regular_grid_without_tab_bar(self):
+    def test_regular_grid_without_show_tracker_mode(self):
         """Test the list is not sectioned when the tab bar is off."""
         response = self.client.get(self.url + "?layout=grid&status=All")
 
         self.assertFalse(response.context["sections_mode"])
         self.assertIsNone(response.context["sections"])
 
-    def test_sections_with_tab_bar(self):
+    def test_sections_with_show_tracker_mode(self):
         """Test the list is sectioned with the tab bar and no status filter."""
-        self.user.mobile_tab_bar = True
+        self.user.show_tracker_mode = True
         self.user.save()
 
         response = self.client.get(self.url + "?layout=grid&status=All")
@@ -126,7 +126,7 @@ class MediaListSectionsViewTests(TestCase):
 
     def test_status_filter_shows_regular_grid(self):
         """Test a status filter falls back to the regular grid in the wrapper."""
-        self.user.mobile_tab_bar = True
+        self.user.show_tracker_mode = True
         self.user.save()
 
         response = self.client.get(
@@ -140,7 +140,7 @@ class MediaListSectionsViewTests(TestCase):
 
     def test_search_with_no_matches(self):
         """Test searching the sectioned list with no matches."""
-        self.user.mobile_tab_bar = True
+        self.user.show_tracker_mode = True
         self.user.save()
 
         response = self.client.get(

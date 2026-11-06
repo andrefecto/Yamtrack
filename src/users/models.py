@@ -317,10 +317,20 @@ class User(AbstractUser):
         help_text=_("Blur unseen episode images and descriptions"),
     )
 
-    mobile_tab_bar = models.BooleanField(
+    # Media types left enabled when show tracker mode is first turned on
+    SHOW_TRACKER_MEDIA_TYPES = (
+        MediaTypes.TV.value,
+        MediaTypes.SEASON.value,
+        MediaTypes.MOVIE.value,
+    )
+
+    show_tracker_mode = models.BooleanField(
         default=False,
         db_default=False,
-        help_text=_("Use a bottom tab bar for navigation on mobile"),
+        help_text=_(
+            "Episode-focused layout: mobile tab bar, Up Next, Upcoming, "
+            "and poster grids grouped by watch status",
+        ),
     )
 
     # Tracking settings

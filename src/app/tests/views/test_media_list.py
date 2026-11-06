@@ -278,7 +278,7 @@ class PosterOnlyCardTests(TestCase):
 
     def test_poster_only_cards(self):
         """Test the title only shows without a poster and the bar overlays it."""
-        self.user.mobile_tab_bar = True
+        self.user.show_tracker_mode = True
         self.user.save()
 
         response = self.client.get(self.url + "?layout=grid")

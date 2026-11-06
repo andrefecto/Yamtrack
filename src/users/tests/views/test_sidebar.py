@@ -73,19 +73,52 @@ class SidebarViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.show_adult_titles)
 
-    def test_sidebar_post_mobile_tab_bar(self):
-        """Test POST request saves and clears the mobile tab bar preference."""
-        self.assertFalse(self.user.mobile_tab_bar)
+    def test_sidebar_post_show_tracker_mode(self):
+        """Test POST request saves and clears show tracker mode."""
+        self.assertFalse(self.user.show_tracker_mode)
 
-        self.client.post(reverse("preferences"), {"mobile_tab_bar": "on"})
+        self.client.post(reverse("preferences"), {"show_tracker_mode": "on"})
         self.user.refresh_from_db()
-        self.assertTrue(self.user.mobile_tab_bar)
+        self.assertTrue(self.user.show_tracker_mode)
 
         self.client.post(reverse("preferences"), {})
         self.user.refresh_from_db()
-        self.assertFalse(self.user.mobile_tab_bar)
+        self.assertFalse(self.user.show_tracker_mode)
 
-    def test_mobile_tab_bar_rendering(self):
+    def test_enabling_show_tracker_mode_applies_presets_once(self):
+        """Test turning the mode on applies its settings, which stay editable."""
+        self.user.clickable_media_cards = False
+        self.user.anime_enabled = True
+        self.user.save()
+
+        self.client.post(
+            reverse("preferences"),
+            {
+                "show_tracker_mode": "on",
+                "media_types_checkboxes": [MediaTypes.ANIME.value],
+            },
+        )
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.clickable_media_cards)
+        self.assertTrue(self.user.tv_enabled)
+        self.assertTrue(self.user.season_enabled)
+        self.assertTrue(self.user.movie_enabled)
+        self.assertFalse(self.user.anime_enabled)
+
+        # Saving again with the mode already on keeps the user's own choices
+        self.client.post(
+            reverse("preferences"),
+            {
+                "show_tracker_mode": "on",
+                "media_types_checkboxes": [MediaTypes.TV.value, MediaTypes.ANIME.value],
+            },
+        )
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.clickable_media_cards)
+        self.assertTrue(self.user.anime_enabled)
+        self.assertFalse(self.user.movie_enabled)
+
+    def test_show_tracker_mode_rendering(self):
         """Test the tab bar replaces the sidebar toggle only when enabled."""
         tab_bar_marker = '@click="isMobileMenuOpen = true"'
         sidebar_toggle_marker = '@click="isMobileMenuOpen = !isMobileMenuOpen"'
@@ -94,7 +127,7 @@ class SidebarViewTests(TestCase):
         self.assertNotContains(response, tab_bar_marker)
         self.assertContains(response, sidebar_toggle_marker)
 
-        self.user.mobile_tab_bar = True
+        self.user.show_tracker_mode = True
         self.user.save()
 
         response = self.client.get(reverse("preferences"))

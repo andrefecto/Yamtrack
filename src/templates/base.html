@@ -8,7 +8,7 @@
     {# Required meta tags #}
     <meta charset="UTF-8">
     <meta name="viewport"
-          content="width=device-width, initial-scale=1.0{% if request.user.mobile_tab_bar %}, viewport-fit=cover{% endif %}">
+          content="width=device-width, initial-scale=1.0{% if request.user.show_tracker_mode %}, viewport-fit=cover{% endif %}">
     <meta name="keywords" content="Yamtrack, Media Tracker">
     <meta name="description" content="Search and track media on Yamtrack.">
 
@@ -241,7 +241,7 @@
             <div class="container mx-auto px-4">
               <div class="flex items-center justify-between lg:justify-center h-16">
                 {# Mobile: sidebar toggle button (the tab bar's More tab replaces it) #}
-                {% if not request.user.mobile_tab_bar %}
+                {% if not request.user.show_tracker_mode %}
                   <button @click="isMobileMenuOpen = !isMobileMenuOpen"
                           class="lg:hidden pe-3 text-gray-400 hover:text-white transition-colors duration-200">
                     {% include "app/icons/hamburger.svg" with classes="w-6 h-6" %}
@@ -313,7 +313,7 @@
             </div>
           </div>
 
-          <main class="flex-1 relative bg-[#212529] {% if request.user.mobile_tab_bar %}pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0{% endif %}">
+          <main class="flex-1 relative bg-[#212529] {% if request.user.show_tracker_mode %}pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0{% endif %}">
             <div class="container mx-auto px-4 py-6 md:px-8 md:py-12">
               {% block content %}
               {% endblock content %}
@@ -321,7 +321,7 @@
           </main>
         </div>
 
-        {% if request.user.mobile_tab_bar %}
+        {% if request.user.show_tracker_mode %}
           {% include "app/components/mobile_tab_bar.html" %}
         {% endif %}
       </div>

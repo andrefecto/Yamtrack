@@ -246,7 +246,10 @@ def preferences(request):
     # Process form submission
     request.user.clickable_media_cards = "clickable_media_cards" in request.POST
     request.user.obfuscate_unseen_episodes = "obfuscate_unseen_episodes" in request.POST
-    request.user.mobile_tab_bar = "mobile_tab_bar" in request.POST
+    enabling_show_tracker_mode = (
+        "show_tracker_mode" in request.POST and not request.user.show_tracker_mode
+    )
+    request.user.show_tracker_mode = "show_tracker_mode" in request.POST
     request.user.quick_watch_date = request.POST.get(
         "quick_watch_date",
         QuickWatchDateChoices.CURRENT_DATE,
@@ -288,6 +291,17 @@ def preferences(request):
             f"{media_type}_enabled",
             media_type in media_types_checked,
         )
+
+    # Turning show tracker mode on applies its recommended settings once;
+    # they stay editable afterwards
+    if enabling_show_tracker_mode:
+        request.user.clickable_media_cards = True
+        for media_type in media_types:
+            setattr(
+                request.user,
+                f"{media_type}_enabled",
+                media_type in request.user.SHOW_TRACKER_MEDIA_TYPES,
+            )
 
     # Save changes and redirect
     request.user.save()

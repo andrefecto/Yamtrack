@@ -278,7 +278,7 @@ def media_list(request, username, media_type):
     # sections (Watching, Caught up, ...) when no status filter is applied
     sections_mode = (
         request.user == target_user
-        and request.user.mobile_tab_bar
+        and request.user.show_tracker_mode
         and media_type == MediaTypes.TV.value
         and layout == "grid"
     )
