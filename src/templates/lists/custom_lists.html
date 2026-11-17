@@ -7,7 +7,7 @@
 {% endblock extra_head %}
 
 {% block title %}
-  {% trans "Lists" %} - Yamtrack
+  {% trans "Lists" %} - {{ SITE_NAME }}
 {% endblock title %}
 
 {% block content %}
@@ -61,7 +61,7 @@
           {% trans "Newest First" as sort_newest_first_label %}
           {% trans "Items Count" as sort_items_count_label %}
           <span class="text-sm"
-            x-text="sort === 'last_item_added' ? '{{ sort_last_item_added_label|escapejs }}' : (sort === 'name' ? '{{ sort_name_label|escapejs }}' : (sort === 'newest_first' ? '{{ sort_newest_first_label|escapejs }}' : '{{ sort_items_count_label|escapejs }}'))"></span>
+                x-text="sort === 'last_item_added' ? '{{ sort_last_item_added_label|escapejs }}' : (sort === 'name' ? '{{ sort_name_label|escapejs }}' : (sort === 'newest_first' ? '{{ sort_newest_first_label|escapejs }}' : '{{ sort_items_count_label|escapejs }}'))"></span>
           {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
         </button>
 

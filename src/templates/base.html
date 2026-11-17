@@ -14,11 +14,11 @@
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-title" content="Yamtrack">
+    <meta name="mobile-web-app-title" content="{{ SITE_NAME }}">
 
     <title>
       {% block title %}
-        Yamtrack
+        {{ SITE_NAME }}
       {% endblock title %}
     </title>
 
@@ -45,7 +45,7 @@
           type="image/png"
           sizes="16x16"
           href="{% static "favicon/favicon-16x16.png" %}">
-    <link rel="manifest" href="{% static "favicon/site.webmanifest" %}">
+    <link rel="manifest" href="{% url "web_manifest" %}">
     <link rel="mask-icon"
           href="{% static "favicon/safari-pinned-tab.svg" color="#181a1b" %}">
     <link rel="shortcut icon" href="{% static "favicon/favicon.ico" %}">
@@ -71,7 +71,7 @@
         <aside class="fixed top-0 left-0 z-40 h-screen w-64 bg-[#1a1d20] transform transition-transform duration-300 ease-in-out border-r border-[#2c3136] -translate-x-full lg:translate-x-0 lg:sticky flex flex-col"
                :class="isMobileMenuOpen ? 'translate-x-0' : ''">
           <div class="h-16 flex items-center px-6">
-            <h1 class="text-2xl font-semibold text-gray-100">Yamtrack</h1>
+            <h1 class="truncate text-2xl font-semibold text-gray-100">{{ SITE_NAME }}</h1>
           </div>
           <nav class="p-4 border-t border-[#2c3136] flex-1 overflow-y-auto">
             {% block sidebar_own_media %}

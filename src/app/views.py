@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from urllib.parse import urlencode
@@ -1183,3 +1184,17 @@ def service_worker():
         response = HttpResponse(f.read(), content_type="application/javascript")
         response["Service-Worker-Allowed"] = "/"
         return response
+
+
+@login_not_required
+@require_GET
+def web_manifest(request):  # noqa: ARG001
+    """Serve the web app manifest with the site name."""
+    manifest_path = Path(settings.STATICFILES_DIRS[0]) / "favicon" / "site.webmanifest"
+    with manifest_path.open() as f:
+        manifest = json.load(f)
+    # Keep the default names unless the site has been renamed
+    if settings.SITE_NAME != "Yamtrack":
+        manifest["name"] = settings.SITE_NAME
+        manifest["short_name"] = settings.SITE_NAME
+    return JsonResponse(manifest, content_type="application/manifest+json")

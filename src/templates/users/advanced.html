@@ -5,7 +5,7 @@
 {% load i18n %}
 
 {% block title %}
-  {% trans "Advanced" %} - Yamtrack
+  {% trans "Advanced" %} - {{ SITE_NAME }}
 {% endblock title %}
 
 {% block settings_content %}
@@ -25,8 +25,8 @@
         <p class="text-gray-400 mb-4 text-sm">
           {% trans "Yamtrack stores your search results in a cache to speed up performance and reduce API calls." %}
           <br>
-            {% trans "Normally, these cached results expire automatically after 24 hours." %}
-            {% trans "If your search results appear outdated, you can clear the cache manually." %}
+          {% trans "Normally, these cached results expire automatically after 24 hours." %}
+          {% trans "If your search results appear outdated, you can clear the cache manually." %}
           <br>
           {% trans "Your next search may be slightly slower as fresh data is retrieved." %}
         </p>

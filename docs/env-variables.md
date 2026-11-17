@@ -42,6 +42,7 @@ See [media-imports](media-imports.md).
 | `DEBUG`            | Default to `False`. Set to `True` for debugging.                                                                                                                                                     |
 | `ADMIN_ENABLED`    | Default to `False`. Set to `True` to enable the Django admin interface.                                                                                                                              |
 | `TRACK_TIME`       | Default to `True`. Set to `False` to disable time tracking in Yamtrack.                                                                                                                              |
+| `SITE_NAME`        | Default to `Yamtrack`. The name shown in the header, the login page, browser tab titles and the home screen app name.                                                                                |
 
 ## User and System Configuration
 

@@ -3,7 +3,7 @@
 {% load i18n %}
 
 {% block title %}
-  {% trans "Forbidden" %} - Yamtrack
+  {% trans "Forbidden" %} - {{ SITE_NAME }}
 {% endblock title %}
 
 {% block body %}
@@ -18,7 +18,8 @@
 
         <p class="text-sm text-gray-500 mb-6">
           {% trans "If you believe this was a bug, please" %}
-          <a href="https://github.com/fuzzygrim/yamtrack/issues" class="text-indigo-400 hover:underline">{% trans "report the issue." %}</a>
+          <a href="https://github.com/fuzzygrim/yamtrack/issues"
+             class="text-indigo-400 hover:underline">{% trans "report the issue." %}</a>
         </p>
       </div>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
