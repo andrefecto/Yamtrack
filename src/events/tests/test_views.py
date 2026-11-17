@@ -690,7 +690,7 @@ class UpcomingViewTests(TestCase):
             if entry["is_episode"]
         }
         self.assertEqual(watched, {2: True, 3: False})
-        self.assertContains(response, reverse("episode_save"), count=1)
+        self.assertContains(response, reverse("upcoming_watch"), count=1)
 
     def test_upcoming_empty(self):
         """Test the empty state when nothing is coming out."""

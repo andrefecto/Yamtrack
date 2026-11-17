@@ -6,7 +6,7 @@ import icalendar
 from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dates import MONTHS_ALT, WEEKDAYS_ABBR
@@ -14,6 +14,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from app import season_slices
 from events import tasks
 from events import upcoming as upcoming_helpers
 from events.models import Event
@@ -131,6 +132,31 @@ def upcoming(request):
         "upcoming_days": upcoming_helpers.UPCOMING_DAYS,
     }
     return render(request, "events/upcoming.html", context)
+
+
+@require_POST
+def upcoming_watch(request):
+    """Mark an episode from the Upcoming list as watched, without a page reload."""
+    try:
+        season_number = int(request.POST["season_number"])
+        episode_number = int(request.POST["episode_number"])
+        media_id = request.POST["media_id"]
+        source = request.POST["source"]
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest(_("Invalid form data"))
+
+    season = season_slices.get_or_create_season(
+        request.user,
+        media_id,
+        source,
+        season_number,
+    )
+    season.watch(episode_number, timezone.now().replace(second=0, microsecond=0))
+    return render(
+        request,
+        "events/components/upcoming_check.html",
+        {"watched": True, "include_messages": True},
+    )
 
 
 @require_POST

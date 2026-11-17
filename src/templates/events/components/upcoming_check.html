@@ -1,0 +1,21 @@
+{% load i18n %}
+
+{# Watched mark for an episode on the Upcoming list; needs item, episode_number, watched #}
+{% if include_messages %}
+  {% include "app/components/messages/messages_oob.html" %}
+{% endif %}
+
+{% if watched %}
+  <span class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white"
+        title="{% trans 'Watched' %}">{% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}</span>
+{% else %}
+  <button type="button"
+          class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
+          title="{% trans 'Mark as watched' %}"
+          hx-post="{% url 'upcoming_watch' %}"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+          hx-vals='{"media_id": "{{ item.media_id }}", "source": "{{ item.source }}", "season_number": "{{ item.season_number }}", "episode_number": "{{ episode_number }}"}'
+          hx-target="this"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}</button>
+{% endif %}
