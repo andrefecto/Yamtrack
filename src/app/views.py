@@ -183,23 +183,7 @@ def up_next_watch(request, instance_id):
     season.increase_progress()
 
     # Watching a finale can start the next season, which takes over the row
-    seasons = (
-        Season.objects.filter(
-            related_tv=season.related_tv,
-            status=Status.IN_PROGRESS.value,
-            item__season_number__gt=0,
-        )
-        .select_related("item", "related_tv__item")
-        .prefetch_related(
-            Prefetch("episodes", queryset=Episode.objects.select_related("item")),
-        )
-        .order_by("item__season_number")
-    )
-    entry = None
-    for candidate in seasons:
-        entry = up_next_helpers.build_up_next_entry(candidate)
-        if entry is not None:
-            break
+    entry = up_next_helpers.get_show_entry(season.related_tv)
 
     return render(
         request,

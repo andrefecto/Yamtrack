@@ -90,6 +90,38 @@
                   </a>
                 </li>
 
+                {% if request.user.show_tracker_mode %}
+                  {% url 'up_next' as up_next_url %}
+                  <li>
+                    <a href="{{ up_next_url }}"
+                       class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == up_next_url %}text-white bg-[#2c3136]{% else %}text-gray-400 hover:text-white hover:bg-[#23272b]{% endif %}">
+                      {% if request.path|str_equals:up_next_url %}
+                        {% include "app/icons/circle-check.svg" with classes="w-5 h-5 text-indigo-400 " %}
+
+                      {% else %}
+                        {% include "app/icons/circle-check.svg" with classes="w-5 h-5" %}
+
+                      {% endif %}
+                      <span>{% trans "Up Next" %}</span>
+                    </a>
+                  </li>
+
+                  {% url 'upcoming' as upcoming_url %}
+                  <li>
+                    <a href="{{ upcoming_url }}"
+                       class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == upcoming_url %}text-white bg-[#2c3136]{% else %}text-gray-400 hover:text-white hover:bg-[#23272b]{% endif %}">
+                      {% if request.path|str_equals:upcoming_url %}
+                        {% include "app/icons/clock.svg" with classes="w-5 h-5 text-indigo-400 " %}
+
+                      {% else %}
+                        {% include "app/icons/clock.svg" with classes="w-5 h-5" %}
+
+                      {% endif %}
+                      <span>{% trans "Upcoming" %}</span>
+                    </a>
+                  </li>
+                {% endif %}
+
                 {% get_sidebar_media_types user as sidebar_media_types %}
                 {% for item in sidebar_media_types %}
                   <li>

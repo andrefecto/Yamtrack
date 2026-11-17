@@ -54,7 +54,14 @@ class UpNextTests(TestCase):
             return {"season/1": {"episodes": episodes}}
         return {"related": {"seasons": []}}
 
-    def _create_season(self, media_id, title, watched=0):
+    def _create_season(
+        self,
+        media_id,
+        title,
+        watched=0,
+        status=Status.IN_PROGRESS.value,
+        tv_status=Status.IN_PROGRESS.value,
+    ):
         tv_item = Item.objects.create(
             media_id=media_id,
             source=Sources.TMDB.value,
@@ -63,7 +70,7 @@ class UpNextTests(TestCase):
             image="http://example.com/tv.jpg",
         )
         tv = TV.objects.bulk_create(
-            [TV(item=tv_item, user=self.user, status=Status.IN_PROGRESS.value)],
+            [TV(item=tv_item, user=self.user, status=tv_status)],
         )[0]
         season_item = Item.objects.create(
             media_id=media_id,
@@ -79,7 +86,7 @@ class UpNextTests(TestCase):
                     item=season_item,
                     user=self.user,
                     related_tv=tv,
-                    status=Status.IN_PROGRESS.value,
+                    status=status,
                 ),
             ],
         )[0]
@@ -141,6 +148,75 @@ class UpNextTests(TestCase):
             [newer, older, self.season],
         )
 
+    def test_get_up_next_includes_announced_seasons(self):
+        """Test planning seasons of in-progress shows are included.
+
+        Those are created when a new season is announced for a caught-up show.
+        """
+        self.metadata["500"] = self.metadata["100"]
+        self.metadata["501"] = self.metadata["100"]
+        announced = self._create_season(
+            "500",
+            "Show Announced",
+            status=Status.PLANNING.value,
+        )
+        self._create_season(
+            "501",
+            "Show Planned",
+            status=Status.PLANNING.value,
+            tv_status=Status.PLANNING.value,
+        )
+
+        entries = up_next.get_up_next(self.user)
+
+        self.assertEqual(
+            [entry["season"] for entry in entries],
+            [self.season, announced],
+        )
+
+    def test_get_up_next_one_entry_per_show(self):
+        """Test a show with several open seasons gets one entry."""
+        season_item = Item.objects.create(
+            media_id="100",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Show A",
+            season_number=2,
+        )
+        Season.objects.bulk_create(
+            [
+                Season(
+                    item=season_item,
+                    user=self.user,
+                    related_tv=self.season.related_tv,
+                    status=Status.PLANNING.value,
+                ),
+            ],
+        )
+
+        entries = up_next.get_up_next(self.user)
+
+        self.assertEqual([entry["season"] for entry in entries], [self.season])
+
+    def test_get_up_next_new_episode_moves_to_top(self):
+        """Test a recently aired episode outranks an older watch."""
+        yesterday = (timezone.localdate() - datetime.timedelta(days=1)).isoformat()
+        self.metadata["600"] = _episodes("2020-01-01", yesterday)
+        self.metadata["601"] = self.metadata["100"]
+        new_episode = self._create_season("600", "Show New Episode", watched=1)
+        recently_watched = self._create_season("601", "Show Recent", watched=2)
+
+        entries = up_next.get_up_next(self.user)
+
+        self.assertEqual(
+            [entry["season"] for entry in entries],
+            [new_episode, recently_watched, self.season],
+        )
+        self.assertEqual(
+            [entry["is_new"] for entry in entries],
+            [True, False, False],
+        )
+
     def test_up_next_page(self):
         """Test the Up Next page lists the next episode."""
         response = self.client.get(reverse("up_next"))
@@ -148,6 +224,10 @@ class UpNextTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Show A")
         self.assertContains(response, "S01 | E01")
+        self.assertContains(
+            response,
+            "/details/tmdb/tv/100/show-a?season=1&amp;episode=1#season-slice-1",
+        )
 
     def test_up_next_watch(self):
         """Test watching from Up Next records the episode and shows the next."""
