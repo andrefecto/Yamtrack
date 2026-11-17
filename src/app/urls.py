@@ -27,6 +27,16 @@ urlpatterns = [
         name="season_details",
     ),
     path(
+        "season-slice/<source:source>/<str:media_id>/<int:season_number>",
+        views.season_slice,
+        name="season_slice",
+    ),
+    path(
+        "season-slice/<source:source>/<str:media_id>/<int:season_number>/<int:episode_number>",
+        views.season_slice_episode,
+        name="season_slice_episode",
+    ),
+    path(
         "update-score/<media_type:media_type>/<int:instance_id>",
         views.update_media_score,
         name="update_media_score",

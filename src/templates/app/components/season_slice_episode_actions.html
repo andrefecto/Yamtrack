@@ -1,0 +1,49 @@
+{% load i18n %}
+
+{# Watch buttons for an episode in a season slice; needs data, episode and episode_url #}
+{% if episode.watch_count %}
+  <button type="button"
+          class="rounded-md bg-gray-600 px-3 py-1.5 text-gray-100 hover:bg-gray-500 cursor-pointer disabled:opacity-50"
+          hx-post="{{ episode_url }}"
+          hx-vals='{"action": "unwatch"}'
+          hx-target="#season-slice-{{ data.season_number }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% trans "Didn't watch" %}</button>
+  <button type="button"
+          class="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 cursor-pointer disabled:opacity-50"
+          hx-post="{{ episode_url }}"
+          hx-vals='{"action": "watch"}'
+          hx-target="#season-slice-{{ data.season_number }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% trans "Watched again" %}</button>
+{% elif episode.unwatched_before %}
+  <span class="w-full text-right text-gray-300">
+    {% blocktrans trimmed count count=episode.unwatched_before %}
+      Also mark the earlier episode as watched?
+    {% plural %}
+      Also mark the {{ count }} earlier episodes as watched?
+    {% endblocktrans %}
+  </span>
+  <button type="button"
+          class="rounded-md bg-gray-600 px-3 py-1.5 text-gray-100 hover:bg-gray-500 cursor-pointer disabled:opacity-50"
+          hx-post="{{ episode_url }}"
+          hx-vals='{"action": "watch"}'
+          hx-target="#season-slice-{{ data.season_number }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% trans "Just this one" %}</button>
+  <button type="button"
+          class="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 cursor-pointer disabled:opacity-50"
+          hx-post="{{ episode_url }}"
+          hx-vals='{"action": "watch_with_previous"}'
+          hx-target="#season-slice-{{ data.season_number }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% trans "Yes" %}</button>
+{% else %}
+  <button type="button"
+          class="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 cursor-pointer disabled:opacity-50"
+          hx-post="{{ episode_url }}"
+          hx-vals='{"action": "watch"}'
+          hx-target="#season-slice-{{ data.season_number }}"
+          hx-swap="outerHTML"
+          hx-disabled-elt="this">{% trans "Mark as watched" %}</button>
+{% endif %}

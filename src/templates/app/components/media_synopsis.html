@@ -1,0 +1,19 @@
+{% load i18n %}
+
+{# The synopsis of a media item, clamped with a read more toggle #}
+{# It measures again when the tab changes, since a hidden tab has no height #}
+<div class="mb-6">
+  <div x-data="{ isExpanded: false, isClamped: false, checkClamp() { const element = this.$refs.synopsisText; this.isClamped = element.scrollHeight > element.clientHeight; } }"
+       x-init="$nextTick(() => checkClamp())"
+       x-effect="tab; $nextTick(() => checkClamp())">
+    <p x-ref="synopsisText"
+       :class="isExpanded ? '' : '{% if media.media_type == MediaTypes.SEASON.value %}line-clamp-4{% else %}line-clamp-5{% endif %}'"
+       class="text-gray-300 text-pretty">{{ media.synopsis|linebreaksbr|safe }}</p>
+    <button x-show="isClamped"
+            @click="isExpanded = !isExpanded"
+            class="text-indigo-400 hover:text-indigo-300 text-sm mt-2 focus:outline-none transition-colors cursor-pointer">
+      <span x-text="isExpanded ? '{{ show_less_label|escapejs }}' : '{{ read_more_label|escapejs }}'"></span>
+    </button>
+  </div>
+
+</div>

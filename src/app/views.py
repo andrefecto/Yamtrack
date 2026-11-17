@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from app import config, helpers, history_processor, media_sections
+from app import config, helpers, history_processor, media_sections, season_slices
 from app import home as home_helpers
 from app import statistics as stats
 from app import up_next as up_next_helpers
@@ -417,6 +417,26 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
     else:
         watch_providers = None
 
+    # Show tracker mode lists seasons as expandable slices instead of cards
+    season_slice_list = None
+    if (
+        media_type == MediaTypes.TV.value
+        and request.user.is_authenticated
+        and request.user.show_tracker_mode
+    ):
+        season_slice_list = [
+            season_slices.build_season_slice(related["item"], related["media"])
+            for related in media_metadata.get("related", {}).get("seasons", [])
+        ]
+        # Links from Up Next and Upcoming open their season and episode
+        open_season = request.GET.get("season")
+        for season_slice in season_slice_list:
+            season_slice["expanded"] = (
+                str(season_slice["data"]["season_number"]) == open_season
+            )
+            if season_slice["expanded"]:
+                season_slice["open_episode"] = request.GET.get("episode")
+
     context = {
         "media": media_metadata,
         "media_type": media_type,
@@ -424,8 +444,75 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         "current_instance": current_instance,
         "watch_providers": watch_providers,
         "watch_provider_region": request.user.watch_provider_region,
+        "season_slices": season_slice_list,
     }
     return render(request, "app/media_details.html", context)
+
+
+@require_GET
+def season_slice(request, source, media_id, season_number):
+    """Return a season slice expanded with its episodes.
+
+    An ``episode`` query parameter opens that episode's details popup.
+    """
+    return _render_season_slice(
+        request,
+        source,
+        media_id,
+        season_number,
+        open_episode=request.GET.get("episode"),
+    )
+
+
+@require_POST
+def season_slice_episode(request, source, media_id, season_number, episode_number):
+    """Watch or unwatch an episode from a season slice."""
+    action = request.POST.get("action")
+    if action not in season_slices.EPISODE_ACTIONS:
+        return HttpResponseBadRequest(_("Invalid action"))
+
+    season_slices.apply_episode_action(
+        request.user,
+        media_id,
+        source,
+        season_number,
+        episode_number,
+        action,
+    )
+    return _render_season_slice(
+        request,
+        source,
+        media_id,
+        season_number,
+        include_messages=True,
+    )
+
+
+def _render_season_slice(
+    request,
+    source,
+    media_id,
+    season_number,
+    *,
+    include_messages=False,
+    open_episode=None,
+):
+    season_slice = season_slices.get_season_slice(
+        request.user,
+        media_id,
+        source,
+        season_number,
+    )
+    return render(
+        request,
+        "app/components/season_slice.html",
+        {
+            "season_slice": season_slice,
+            "expanded": True,
+            "include_messages": include_messages,
+            "open_episode": open_episode,
+        },
+    )
 
 
 @require_GET
@@ -783,42 +870,12 @@ def episode_save(request):
         logger.error("Form validation failed: %s", form.errors)
         return HttpResponseBadRequest(_("Invalid form data"))
 
-    try:
-        related_season = Season.objects.get(
-            item__media_id=media_id,
-            item__source=source,
-            item__season_number=season_number,
-            item__episode_number=None,
-            user=request.user,
-        )
-    except Season.DoesNotExist:
-        tv_with_seasons_metadata = services.get_media_metadata(
-            "tv_with_seasons",
-            media_id,
-            source,
-            [season_number],
-        )
-        season_metadata = tv_with_seasons_metadata[f"season/{season_number}"]
-
-        item, _created = Item.objects.get_or_create(
-            media_id=media_id,
-            source=Sources.TMDB.value,
-            media_type=MediaTypes.SEASON.value,
-            season_number=season_number,
-            defaults={
-                "title": tv_with_seasons_metadata["title"],
-                "image": season_metadata["image"],
-            },
-        )
-        related_season = Season.objects.create(
-            item=item,
-            user=request.user,
-            score=None,
-            status=Status.IN_PROGRESS.value,
-            notes="",
-        )
-
-        logger.info("%s did not exist, it was created successfully.", related_season)
+    related_season = season_slices.get_or_create_season(
+        request.user,
+        media_id,
+        source,
+        season_number,
+    )
 
     related_season.watch(
         episode_number,

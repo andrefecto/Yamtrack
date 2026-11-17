@@ -1,0 +1,120 @@
+{% load app_tags %}
+{% load i18n %}
+
+{# One episode in an expanded season slice; needs data and episode #}
+{% url 'season_slice_episode' source=data.source media_id=data.media_id season_number=data.season_number episode_number=episode.episode_number as episode_url %}
+<li class="px-4 py-3"
+    x-data="{ asking: false, detailsOpen: {% if open_episode and open_episode == episode.episode_number|stringformat:"s" %}true{% else %}false{% endif %}, hidden: {% if request.user.obfuscate_unseen_episodes and not episode.watch_count %}true{% else %}false{% endif %} }">
+  <div class="flex items-center gap-3">
+    <button type="button"
+            class="shrink-0 cursor-pointer"
+            @click="detailsOpen = true">
+      <img alt="E{{ episode.episode_number }}"
+           class="lazyload aspect-video w-20 rounded {% if episode.image != IMG_NONE %}object-cover{% endif %}"
+           :class="hidden && 'blur'"
+           data-src="{{ episode.image }}"
+           src="{{ IMG_NONE }}">
+    </button>
+    <button type="button"
+            class="min-w-0 flex-1 text-left cursor-pointer"
+            @click="detailsOpen = true">
+      <p class="truncate text-sm text-gray-100" :class="hidden && 'blur'">{{ episode.title }}</p>
+      <p class="text-xs text-gray-500">
+        E{{ episode.episode_number|stringformat:"02d" }}
+        {% if episode.air_date %}• {{ episode.air_date|iso_date_format:request.user }}{% endif %}
+      </p>
+    </button>
+
+    {% if episode.watch_count > 1 %}<span class="text-xs font-semibold text-gray-300">×{{ episode.watch_count }}</span>{% endif %}
+
+    {% if episode.watch_count or episode.unwatched_before %}
+      <button type="button"
+              class="shrink-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-indigo-500 cursor-pointer transition-colors {% if episode.watch_count %}bg-indigo-600 text-white{% else %}text-indigo-400 hover:bg-indigo-600 hover:text-white{% endif %}"
+              title="{% if episode.watch_count %}{% trans 'Watched' %}{% else %}{% trans 'Mark as watched' %}{% endif %}"
+              @click="asking = !asking">{% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}</button>
+    {% else %}
+      <button type="button"
+              class="shrink-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
+              title="{% trans 'Mark as watched' %}"
+              hx-post="{{ episode_url }}"
+              hx-vals='{"action": "watch"}'
+              hx-target="#season-slice-{{ data.season_number }}"
+              hx-swap="outerHTML"
+              hx-disabled-elt="this">{% include "app/icons/checkmark.svg" with classes="w-5 h-5" %}</button>
+    {% endif %}
+  </div>
+
+  {% if episode.watch_count or episode.unwatched_before %}
+    <div class="mt-2 flex flex-wrap items-center justify-end gap-2 text-sm"
+         x-show="asking"
+         x-cloak>{% include "app/components/season_slice_episode_actions.html" %}</div>
+  {% endif %}
+  {# Episode details popup #}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+       x-show="detailsOpen"
+       x-cloak
+       @keydown.escape.window="detailsOpen = false">
+    <div class="max-h-[90svh] w-full overflow-y-auto rounded-t-lg bg-[#2a2f35] shadow-lg sm:max-w-lg sm:rounded-lg"
+         @click.outside="detailsOpen = false">
+      <div class="relative">
+        <img alt="E{{ episode.episode_number }}"
+             class="lazyload aspect-video w-full {% if episode.image != IMG_NONE %}object-cover{% endif %}"
+             :class="hidden && 'blur'"
+             data-src="{{ episode.image }}"
+             src="{{ IMG_NONE }}">
+        <button type="button"
+                class="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-gray-200 hover:text-white cursor-pointer"
+                title="{% trans 'Close' %}"
+                @click="detailsOpen = false">{% include "app/icons/x.svg" with classes="w-5 h-5" %}</button>
+      </div>
+
+      <div class="space-y-3 p-4">
+        <div>
+          <p class="text-xs font-semibold uppercase text-gray-400">
+            S{{ data.season_number|stringformat:"02d" }} | E{{ episode.episode_number|stringformat:"02d" }}
+          </p>
+          <h3 class="text-lg font-semibold text-gray-100"
+              :class="hidden && 'blur cursor-pointer'"
+              @click="hidden = false">{{ episode.title }}</h3>
+          <p class="text-sm text-gray-400">
+            {{ episode.air_date|iso_date_format:request.user|default_if_none:_("Unknown air date") }}
+            {% if episode.runtime %}• {{ episode.runtime }}{% endif %}
+          </p>
+        </div>
+
+        {% if episode.overview %}
+          <p class="text-sm leading-relaxed text-gray-300"
+             :class="hidden && 'blur cursor-pointer'"
+             @click="hidden = false">{{ episode.overview }}</p>
+        {% endif %}
+
+        {% if episode.history %}
+          <div class="text-sm text-gray-400">
+            <p class="font-medium text-gray-300">
+              {% blocktrans trimmed count count=episode.watch_count %}
+                Watched once
+              {% plural %}
+                Watched {{ count }} times
+              {% endblocktrans %}
+            </p>
+            <ul>
+              {% for watch in episode.history %}
+                <li>
+                  {% if watch.end_date %}
+                    {{ watch.end_date|datetime_format:request.user }}
+                  {% else %}
+                    {% trans "No date provided" %}
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-[#343a40] pt-3 text-sm">
+          {% include "app/components/season_slice_episode_actions.html" %}
+        </div>
+      </div>
+    </div>
+  </div>
+</li>

@@ -1,0 +1,85 @@
+{% load app_tags %}
+{% load i18n %}
+
+{% if include_messages %}
+  {% include "app/components/messages/messages_oob.html" %}
+{% endif %}
+
+{# A season row that expands into its episodes, used in show tracker mode #}
+{% with data=season_slice.data %}
+  <div id="season-slice-{{ data.season_number }}"
+       class="overflow-hidden rounded-lg bg-[#2a2f35] shadow-lg"
+       x-data="{ open: {% if expanded or season_slice.expanded %}true{% else %}false{% endif %} }"
+       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <button type="button"
+            class="flex w-full items-center gap-3 px-4 py-3 text-left cursor-pointer"
+            :aria-expanded="open"
+            @click="open = !open">
+      <span class="min-w-0 flex-1 truncate font-semibold text-gray-100">{{ data.season_title }}</span>
+      <span class="text-sm text-gray-400">{{ season_slice.watched }}/{{ season_slice.total }}</span>
+      <span class="text-gray-400 transition-transform duration-200"
+            :class="open && 'rotate-180'">{% include "app/icons/chevron-down.svg" with classes="w-5 h-5" %}</span>
+    </button>
+
+    <div class="h-1 bg-gray-700">
+      <div class="h-full {% if season_slice.complete %}bg-green-500{% else %}bg-yellow-400{% endif %}"
+           style="width: {% widthratio season_slice.watched season_slice.total 100 %}%"></div>
+    </div>
+
+    <div x-show="open" x-cloak>
+      {% if season_slice.episodes is not None %}
+        {% with info=season_slice.info details=season_slice.info.details %}
+          <div class="space-y-2 border-b border-[#343a40] px-4 py-3 text-sm">
+            <p class="flex flex-wrap gap-x-3 gap-y-1 text-gray-400">
+              {% if info.score %}
+                <span class="inline-flex items-center gap-1">
+                  {% include "app/icons/star.svg" with classes="w-4 h-4 text-yellow-400 fill-yellow-400" %}
+                  {{ info.score }}
+                </span>
+              {% endif %}
+              {% if details.episodes %}
+                <span>{% blocktrans count count=details.episodes %}{{ count }} episode{% plural %}{{ count }} episodes{% endblocktrans %}</span>
+              {% endif %}
+              {% if details.first_air_date %}
+                <span>
+                  {{ details.first_air_date|iso_date_format:request.user }}
+                  {% if details.last_air_date and details.last_air_date != details.first_air_date %}
+                    – {{ details.last_air_date|iso_date_format:request.user }}
+                  {% endif %}
+                </span>
+              {% endif %}
+              {% if details.runtime %}
+                <span>{% blocktrans with runtime=details.runtime %}{{ runtime }} per episode{% endblocktrans %}</span>
+              {% endif %}
+              {% if details.total_runtime %}
+                <span>{% blocktrans with total=details.total_runtime %}{{ total }} total{% endblocktrans %}</span>
+              {% endif %}
+            </p>
+            {% if info.synopsis %}
+              <p class="cursor-pointer text-gray-300"
+                 x-data="{ more: false }"
+                 :class="!more && 'line-clamp-3'"
+                 @click="more = !more">{{ info.synopsis }}</p>
+            {% endif %}
+          </div>
+        {% endwith %}
+        <ul class="divide-y divide-[#343a40]">
+          {% for episode in season_slice.episodes %}
+            {% include "app/components/season_slice_episode.html" %}
+          {% endfor %}
+        </ul>
+        <a href="{{ data|media_url }}"
+           class="flex items-center justify-center gap-1 border-t border-[#343a40] px-4 py-3 text-sm text-indigo-400 hover:text-indigo-300">
+          {% trans "Season details" %}
+          {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
+        </a>
+      {% else %}
+        <div class="px-4 py-3 text-center text-sm text-gray-400"
+             hx-get="{% url 'season_slice' source=data.source media_id=data.media_id season_number=data.season_number %}{% if season_slice.open_episode %}?episode={{ season_slice.open_episode|urlencode }}{% endif %}"
+             hx-trigger="intersect once"
+             hx-target="#season-slice-{{ data.season_number }}"
+             hx-swap="outerHTML">{% trans "Loading episodes..." %}</div>
+      {% endif %}
+    </div>
+  </div>
+{% endwith %}

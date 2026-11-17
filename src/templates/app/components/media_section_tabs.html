@@ -1,13 +1,29 @@
 {% load app_tags %}
 {% load i18n %}
 {% media_section_count media user_medias watch_providers watch_provider_region as section_count %}
-{% if section_count > 1 %}
+{# Show tracker mode always has its Episodes and About tabs #}
+{% if section_count > 1 or season_slices is not None %}
   <nav class="flex gap-x-6 overflow-x-auto scrollbar-hide border-b border-[#2c3136] {{ extra_classes }}">
-    <button @click="tab = 'overview'"
-            class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
-            :class="tab === 'overview' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">
-      {% trans "Overview" %}
-    </button>
+    {# Show tracker mode replaces Overview with Episodes (the season slices) #}
+    {# and About (the details), and every other section keeps its own tab #}
+    {% if season_slices is not None %}
+      <button @click="tab = 'seasons'"
+              class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
+              :class="tab === 'seasons' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">
+        {% trans "Episodes" %}
+      </button>
+      <button @click="tab = 'about'"
+              class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
+              :class="tab === 'about' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">
+        {% trans "About" %}
+      </button>
+    {% else %}
+      <button @click="tab = 'overview'"
+              class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
+              :class="tab === 'overview' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">
+        {% trans "Overview" %}
+      </button>
+    {% endif %}
 
     {% if media.cast %}
       <button @click="tab = 'cast'"
@@ -19,7 +35,8 @@
 
     {% if media.related %}
       {% for name, related_items in media.related.items %}
-        {% if related_items %}
+        {# In show tracker mode, seasons are the Episodes tab #}
+        {% if related_items and name != "seasons" or related_items and season_slices is None %}
           <button @click="tab = 'related-{{ forloop.counter }}'"
                   class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
                   :class="tab === 'related-{{ forloop.counter }}' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">
