@@ -2,17 +2,18 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from app.media_sections import build_tv_sections
+from app.media_sections import build_movie_sections, build_tv_sections
 from app.models import TV, Item, MediaTypes, Sources, Status
+from events.models import Event
 
 
 def _tv(title, status, progress=0, max_progress=None, last_watched=None):
     return SimpleNamespace(
-        item=SimpleNamespace(title=title),
+        item=SimpleNamespace(title=title, media_id=title, source=Sources.TMDB.value),
         status=status,
         progress=progress,
         max_progress=max_progress,
@@ -20,7 +21,7 @@ def _tv(title, status, progress=0, max_progress=None, last_watched=None):
     )
 
 
-class BuildTVSectionsTests(SimpleTestCase):
+class BuildTVSectionsTests(TestCase):
     """Tests for grouping TV shows into sections."""
 
     def test_sections_order_and_membership(self):
@@ -69,11 +70,77 @@ class BuildTVSectionsTests(SimpleTestCase):
             ],
         )
 
+    def test_new_episode_moves_show_to_top_of_watching(self):
+        """Test an episode aired after the last watch counts as activity."""
+        now = timezone.now()
+        recent = _tv("Recent", Status.IN_PROGRESS.value, 3, 10, now - timedelta(days=2))
+        returning = _tv(
+            "Returning",
+            Status.IN_PROGRESS.value,
+            10,
+            11,
+            now - timedelta(days=200),
+        )
+        season_item = Item.objects.create(
+            media_id="Returning",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Returning",
+            season_number=2,
+        )
+        Event.objects.create(
+            item=season_item,
+            content_number=1,
+            datetime=now - timedelta(days=1),
+        )
+
+        sections = build_tv_sections([recent, returning], now=now)
+
+        self.assertEqual(
+            [(section["key"], section["items"]) for section in sections],
+            [("watching", [returning, recent])],
+        )
+
     def test_empty_sections_are_omitted(self):
         """Test only sections with shows are returned."""
         sections = build_tv_sections([_tv("Planned", Status.PLANNING.value)])
 
         self.assertEqual([section["key"] for section in sections], ["not_started"])
+
+
+class BuildMovieSectionsTests(TestCase):
+    """Tests for grouping movies into sections."""
+
+    def test_sections_order_and_membership(self):
+        """Test movies to watch come first and watched movies are newest first."""
+        now = timezone.now()
+
+        def movie(title, status, end_date=None):
+            return SimpleNamespace(
+                item=SimpleNamespace(title=title),
+                status=status,
+                end_date=end_date,
+            )
+
+        planned = movie("Planned", Status.PLANNING.value)
+        started = movie("Started", Status.IN_PROGRESS.value)
+        old = movie("Old", Status.COMPLETED.value, now - timedelta(days=30))
+        recent = movie("Recent", Status.COMPLETED.value, now - timedelta(days=1))
+        undated = movie("Undated", Status.COMPLETED.value)
+        dropped = movie("Dropped", Status.DROPPED.value)
+
+        sections = build_movie_sections(
+            [planned, old, dropped, undated, recent, started],
+        )
+
+        self.assertEqual(
+            [(section["key"], section["items"]) for section in sections],
+            [
+                ("to_watch", [planned, started]),
+                ("watched", [recent, old, undated]),
+                ("on_hold", [dropped]),
+            ],
+        )
 
 
 class MediaListSectionsViewTests(TestCase):
@@ -149,4 +216,4 @@ class MediaListSectionsViewTests(TestCase):
         )
 
         self.assertEqual(response.context["sections"], [])
-        self.assertContains(response, "No shows match your search.")
+        self.assertContains(response, "Nothing matches your search.")

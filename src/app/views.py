@@ -259,12 +259,12 @@ def media_list(request, username, media_type):
         search=search_query,
     )
 
-    # With the mobile tab bar, the user's own shows grid is grouped into
-    # sections (Watching, Caught up, ...) when no status filter is applied
+    # In show tracker mode, the user's own shows and movies grids are grouped
+    # into sections (Watching, Caught up, ...) when no status filter is applied
     sections_mode = (
         request.user == target_user
         and request.user.show_tracker_mode
-        and media_type == MediaTypes.TV.value
+        and media_type in (MediaTypes.TV.value, MediaTypes.MOVIE.value)
         and layout == "grid"
     )
     media_page, sections = _get_media_list_page(
@@ -318,10 +318,12 @@ def media_list(request, username, media_type):
 
 
 def _get_media_list_page(media_queryset, media_type, page, *, grouped):
-    """Return the media to show and, when grouped, the TV sections."""
+    """Return the media to show and, when grouped, its sections."""
     if grouped:
         media = list(media_queryset)
         BasicMedia.objects.annotate_max_progress(media, media_type)
+        if media_type == MediaTypes.MOVIE.value:
+            return media, media_sections.build_movie_sections(media)
         return media, media_sections.build_tv_sections(media)
 
     items_per_page = 32
