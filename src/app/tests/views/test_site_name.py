@@ -11,6 +11,7 @@ class SiteNameTests(TestCase):
         self.credentials = {"username": "test", "password": "12345"}
         get_user_model().objects.create_user(**self.credentials)
 
+    @override_settings(SITE_NAME="Yamtrack")
     def test_default_name(self):
         """Pages should be named Yamtrack by default."""
         self.client.login(**self.credentials)
@@ -38,6 +39,7 @@ class SiteNameTests(TestCase):
         self.assertContains(response, "TVTime")
         self.assertNotContains(response, "- Yamtrack")
 
+    @override_settings(SITE_NAME="Yamtrack")
     def test_manifest_default_name(self):
         """The manifest should keep its names by default, without logging in."""
         response = self.client.get(reverse("web_manifest"))
