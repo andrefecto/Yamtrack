@@ -343,6 +343,28 @@ class MediaManager(models.Manager):
                 models.functions.Lower("item__title"),
             )
 
+        if sort_filter == "latest_episode":
+            # Annotate with the air date of the show's latest released episode
+            latest_release = (
+                events.models.Event.objects.filter(
+                    item__media_id=models.OuterRef("item__media_id"),
+                    item__source=models.OuterRef("item__source"),
+                    item__media_type=MediaTypes.SEASON.value,
+                    item__season_number__gt=0,
+                    content_number__isnull=False,
+                    datetime__lte=timezone.now(),
+                )
+                .order_by("-datetime")
+                .values("datetime")[:1]
+            )
+            queryset = queryset.annotate(
+                latest_release=models.Subquery(latest_release),
+            )
+            return queryset.order_by(
+                models.F("latest_release").desc(nulls_last=True),
+                models.functions.Lower("item__title"),
+            )
+
         # Default to generic sorting
         return self._sort_generic_media_list(queryset, sort_filter)
 

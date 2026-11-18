@@ -15,9 +15,9 @@ def build_tv_sections(tv_list, now=None):
     """Group TV shows into sections by how the user is watching them.
 
     Expects ``max_progress`` to be annotated on each show (released episodes).
-    An episode that aired after the last watched one counts as activity, so a
-    show with a new episode moves back to the top of the watching section.
-    Empty sections are left out.
+    Each section keeps the list's sort order. An episode that aired after the
+    last watched one counts as activity, so a show with a new episode is not
+    treated as stale. Empty sections are left out.
     """
     now = now or timezone.now()
     latest_releases = _latest_release_by_show(tv_list, now)
@@ -35,12 +35,6 @@ def build_tv_sections(tv_list, now=None):
 
     for tv in tv_list:
         sections[_section_key(tv, now)]["items"].append(tv)
-
-    # Shows being watched are ordered by most recent activity
-    for key in ("watching", "caught_up", "stale"):
-        sections[key]["items"].sort(key=_activity_sort_key, reverse=True)
-    for key in ("not_started", "finished", "on_hold"):
-        sections[key]["items"].sort(key=lambda tv: tv.item.title.lower())
 
     return [
         {"key": key, **section} for key, section in sections.items() if section["items"]
@@ -130,8 +124,3 @@ def _last_activity(tv, latest_releases):
     if has_unwatched and latest_release is not None:
         return max(last_watched, latest_release)
     return last_watched
-
-
-def _activity_sort_key(tv):
-    # Shows with nothing watched yet sort after everything else
-    return (tv.last_activity is not None, tv.last_activity or timezone.now())

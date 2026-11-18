@@ -100,6 +100,7 @@ class SidebarViewTests(TestCase):
         )
         self.user.refresh_from_db()
         self.assertTrue(self.user.clickable_media_cards)
+        self.assertEqual(self.user.tv_sort, "latest_episode")
         self.assertTrue(self.user.tv_enabled)
         self.assertTrue(self.user.season_enabled)
         self.assertTrue(self.user.movie_enabled)

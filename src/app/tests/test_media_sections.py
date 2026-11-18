@@ -25,7 +25,7 @@ class BuildTVSectionsTests(TestCase):
     """Tests for grouping TV shows into sections."""
 
     def test_sections_order_and_membership(self):
-        """Test each show lands in the right section, in the right order."""
+        """Test each show lands in the right section, keeping the list order."""
         now = timezone.now()
         recent = _tv("Recent", Status.IN_PROGRESS.value, 3, 10, now - timedelta(days=2))
         older = _tv("Older", Status.IN_PROGRESS.value, 3, 10, now - timedelta(days=9))
@@ -61,7 +61,7 @@ class BuildTVSectionsTests(TestCase):
         self.assertEqual(
             [(section["key"], section["items"]) for section in sections],
             [
-                ("watching", [recent, older, no_watches]),
+                ("watching", [older, recent, no_watches]),
                 ("caught_up", [caught_up]),
                 ("stale", [stale]),
                 ("not_started", [planned]),
@@ -70,7 +70,7 @@ class BuildTVSectionsTests(TestCase):
             ],
         )
 
-    def test_new_episode_moves_show_to_top_of_watching(self):
+    def test_new_episode_keeps_show_out_of_stale(self):
         """Test an episode aired after the last watch counts as activity."""
         now = timezone.now()
         recent = _tv("Recent", Status.IN_PROGRESS.value, 3, 10, now - timedelta(days=2))
@@ -98,7 +98,7 @@ class BuildTVSectionsTests(TestCase):
 
         self.assertEqual(
             [(section["key"], section["items"]) for section in sections],
-            [("watching", [returning, recent])],
+            [("watching", [recent, returning])],
         )
 
     def test_empty_sections_are_omitted(self):
@@ -217,3 +217,68 @@ class MediaListSectionsViewTests(TestCase):
 
         self.assertEqual(response.context["sections"], [])
         self.assertContains(response, "Nothing matches your search.")
+
+    def test_latest_episode_sort_within_sections(self):
+        """Test the latest episode sort orders shows inside each section."""
+        self.user.show_tracker_mode = True
+        self.user.save()
+        now = timezone.now()
+        for media_id, title, days_ago in (
+            ("3", "Older Release", 10),
+            ("4", "Newer Release", 1),
+            ("5", "No Release", None),
+        ):
+            item = Item.objects.create(
+                media_id=media_id,
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.TV.value,
+                title=title,
+                image="http://example.com/image.jpg",
+            )
+            TV.objects.bulk_create(
+                [TV(item=item, user=self.user, status=Status.PLANNING.value)],
+            )
+            if days_ago is not None:
+                season_item = Item.objects.create(
+                    media_id=media_id,
+                    source=Sources.TMDB.value,
+                    media_type=MediaTypes.SEASON.value,
+                    title=title,
+                    season_number=1,
+                )
+                Event.objects.create(
+                    item=season_item,
+                    content_number=1,
+                    datetime=now - timedelta(days=days_ago),
+                )
+
+        response = self.client.get(
+            self.url + "?layout=grid&status=All&sort=latest_episode",
+        )
+
+        not_started = response.context["sections"][0]
+        self.assertEqual(not_started["key"], "not_started")
+        self.assertEqual(
+            [tv.item.title for tv in not_started["items"]],
+            ["Newer Release", "Older Release", "No Release", "Planned Show"],
+        )
+        self.assertIn(
+            ("latest_episode", "Latest Episode"),
+            response.context["sort_choices"],
+        )
+
+    def test_latest_episode_sort_only_for_tv(self):
+        """Test other media lists neither offer nor accept the TV-only sort."""
+        url = reverse(
+            "medialist",
+            kwargs={"username": "test", "media_type": MediaTypes.MOVIE.value},
+        )
+
+        response = self.client.get(url + "?sort=latest_episode")
+
+        self.assertNotIn(
+            "latest_episode",
+            dict(response.context["sort_choices"]),
+        )
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.movie_sort, "latest_episode")

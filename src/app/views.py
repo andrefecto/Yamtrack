@@ -42,6 +42,7 @@ from users.models import (
     HomeSortChoices,
     MediaSortChoices,
     MediaStatusChoices,
+    TVSortChoices,
     User,
 )
 
@@ -290,7 +291,11 @@ def media_list(request, username, media_type):
         "sections": sections,
         "current_sort": sort_filter,
         "current_status": status_filter,
-        "sort_choices": MediaSortChoices.choices,
+        "sort_choices": (
+            TVSortChoices.choices
+            if media_type == MediaTypes.TV.value
+            else MediaSortChoices.choices
+        ),
         "status_choices": MediaStatusChoices.choices,
         "target_user": target_user,
     }

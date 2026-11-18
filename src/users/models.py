@@ -45,6 +45,17 @@ class MediaSortChoices(models.TextChoices):
     END_DATE = "end_date", _("End Date")
 
 
+class TVSortChoices(models.TextChoices):
+    """Choices for TV list sort options: the media ones plus latest episode."""
+
+    SCORE = MediaSortChoices.SCORE.value, MediaSortChoices.SCORE.label
+    TITLE = MediaSortChoices.TITLE.value, MediaSortChoices.TITLE.label
+    PROGRESS = MediaSortChoices.PROGRESS.value, MediaSortChoices.PROGRESS.label
+    START_DATE = MediaSortChoices.START_DATE.value, MediaSortChoices.START_DATE.label
+    END_DATE = MediaSortChoices.END_DATE.value, MediaSortChoices.END_DATE.label
+    LATEST_EPISODE = "latest_episode", _("Latest Episode")
+
+
 class MediaStatusChoices(models.TextChoices):
     """Choices for media list status options."""
 
@@ -153,8 +164,8 @@ class User(AbstractUser):
     )
     tv_sort = models.CharField(
         max_length=20,
-        default=MediaSortChoices.SCORE,
-        choices=MediaSortChoices,
+        default=TVSortChoices.SCORE,
+        choices=TVSortChoices,
     )
     tv_status = models.CharField(
         max_length=20,
@@ -505,7 +516,7 @@ class User(AbstractUser):
             ),
             models.CheckConstraint(
                 name="tv_sort_valid",
-                condition=models.Q(tv_sort__in=MediaSortChoices.values),
+                condition=models.Q(tv_sort__in=TVSortChoices.values),
             ),
             models.CheckConstraint(
                 name="season_sort_valid",

@@ -22,6 +22,7 @@ from users.models import (
     DateFormatChoices,
     QuickWatchDateChoices,
     TimeFormatChoices,
+    TVSortChoices,
     WeekStartDayChoices,
 )
 
@@ -296,6 +297,7 @@ def preferences(request):
     # they stay editable afterwards
     if enabling_show_tracker_mode:
         request.user.clickable_media_cards = True
+        request.user.tv_sort = TVSortChoices.LATEST_EPISODE
         for media_type in media_types:
             setattr(
                 request.user,
