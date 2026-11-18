@@ -174,14 +174,29 @@ def up_next(request):
 
 
 @require_POST
-def up_next_watch(request, instance_id):
-    """Watch the next episode of a season and return the updated Up Next row."""
+def up_next_watch(request, instance_id, episode_number):
+    """Watch an episode of a season and return the updated Up Next row.
+
+    The ``watch_with_previous`` action also watches the unwatched episodes
+    before it.
+    """
     season = helpers.get_owned_media_or_404(
         request,
         MediaTypes.SEASON.value,
         instance_id,
     )
-    season.increase_progress()
+    action = request.POST.get("action", season_slices.WATCH)
+    if action not in (season_slices.WATCH, season_slices.WATCH_WITH_PREVIOUS):
+        return HttpResponseBadRequest("Invalid action")
+
+    season_slices.apply_episode_action(
+        request.user,
+        season.item.media_id,
+        season.item.source,
+        season.item.season_number,
+        episode_number,
+        action,
+    )
 
     # Watching a finale can start the next season, which takes over the row
     entry = up_next_helpers.get_show_entry(season.related_tv)

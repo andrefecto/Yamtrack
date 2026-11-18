@@ -127,12 +127,42 @@ class UpNextTests(TestCase):
         entries = up_next.get_up_next(self.user)
 
         self.assertEqual([entry["season"] for entry in entries], [self.season])
-        self.assertEqual(entries[0]["episode_number"], 1)
-        self.assertEqual(entries[0]["remaining_episodes"], 3)
         self.assertEqual(
-            entries[0]["image"],
+            [episode["episode_number"] for episode in entries[0]["episodes"]],
+            [1, 2, 3],
+        )
+        self.assertEqual(
+            [episode["unwatched_before"] for episode in entries[0]["episodes"]],
+            [0, 1, 2],
+        )
+        self.assertEqual(entries[0]["more_episodes"], 0)
+        self.assertEqual(
+            entries[0]["episodes"][0]["image"],
             "https://image.tmdb.org/t/p/w500/still1.jpg",
         )
+
+    def test_get_up_next_lists_released_episodes_up_to_limit(self):
+        """Test a show lists its next released episodes and counts the rest."""
+        tomorrow = (timezone.localdate() + datetime.timedelta(days=1)).isoformat()
+        self.metadata["700"] = _episodes(
+            "2020-01-01",
+            "2020-01-08",
+            "2020-01-15",
+            "2020-01-22",
+            "2020-01-29",
+            "2020-02-05",
+            tomorrow,
+        )
+        season = self._create_season("700", "Show Behind", watched=1)
+
+        entry = up_next.get_show_entry(season.related_tv)
+
+        self.assertEqual(
+            [episode["episode_number"] for episode in entry["episodes"]],
+            [2, 3, 4],
+        )
+        # Episodes 5 and 6 have aired; episode 7 has not
+        self.assertEqual(entry["more_episodes"], 2)
 
     def test_get_up_next_orders_recently_watched_first(self):
         """Test started shows come first, most recently watched on top."""
@@ -198,8 +228,8 @@ class UpNextTests(TestCase):
 
         self.assertEqual([entry["season"] for entry in entries], [self.season])
 
-    def test_get_up_next_new_episode_moves_to_top(self):
-        """Test a recently aired episode outranks an older watch."""
+    def test_get_up_next_new_episode_keeps_watch_order(self):
+        """Test a recently aired episode is flagged but does not reorder shows."""
         yesterday = (timezone.localdate() - datetime.timedelta(days=1)).isoformat()
         self.metadata["600"] = _episodes("2020-01-01", yesterday)
         self.metadata["601"] = self.metadata["100"]
@@ -210,11 +240,11 @@ class UpNextTests(TestCase):
 
         self.assertEqual(
             [entry["season"] for entry in entries],
-            [new_episode, recently_watched, self.season],
+            [recently_watched, new_episode, self.season],
         )
         self.assertEqual(
-            [entry["is_new"] for entry in entries],
-            [True, False, False],
+            [entry["episodes"][0]["is_new"] for entry in entries],
+            [False, True, False],
         )
 
     def test_up_next_page(self):
@@ -229,10 +259,25 @@ class UpNextTests(TestCase):
             "/details/tmdb/tv/100/show-a?season=1&amp;episode=1#season-slice-1",
         )
 
+    def _watch_url(self, season, episode_number):
+        return reverse(
+            "up_next_watch",
+            kwargs={"instance_id": season.id, "episode_number": episode_number},
+        )
+
+    def _watched_numbers(self, season):
+        return sorted(
+            Episode.objects.filter(related_season=season).values_list(
+                "item__episode_number",
+                flat=True,
+            ),
+        )
+
     def test_up_next_watch(self):
         """Test watching from Up Next records the episode and shows the next."""
         response = self.client.post(
-            reverse("up_next_watch", kwargs={"instance_id": self.season.id}),
+            self._watch_url(self.season, 1),
+            {"action": "watch"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -244,13 +289,46 @@ class UpNextTests(TestCase):
         )
         self.assertContains(response, "S01 | E02")
 
+    def test_up_next_watch_later_episode_only(self):
+        """Test ticking a later episode can watch just that one."""
+        response = self.client.post(
+            self._watch_url(self.season, 2),
+            {"action": "watch"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._watched_numbers(self.season), [2])
+        self.assertContains(response, "S01 | E03")
+
+    def test_up_next_watch_with_previous(self):
+        """Test ticking a later episode can watch the earlier ones too."""
+        response = self.client.post(
+            self._watch_url(self.season, 2),
+            {"action": "watch_with_previous"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._watched_numbers(self.season), [1, 2])
+        self.assertContains(response, "S01 | E03")
+
+    def test_up_next_watch_invalid_action(self):
+        """Test an unknown action is rejected."""
+        response = self.client.post(
+            self._watch_url(self.season, 1),
+            {"action": "unwatch"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self._watched_numbers(self.season), [])
+
     def test_up_next_watch_finale_removes_row(self):
         """Test watching the last episode leaves nothing to render for the show."""
         season = self._create_season("400", "Show Finale", watched=2)
         self.metadata["400"] = self.metadata["100"]
 
         response = self.client.post(
-            reverse("up_next_watch", kwargs={"instance_id": season.id}),
+            self._watch_url(season, 3),
+            {"action": "watch"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -264,7 +342,8 @@ class UpNextTests(TestCase):
         self.client.force_login(other)
 
         response = self.client.post(
-            reverse("up_next_watch", kwargs={"instance_id": self.season.id}),
+            self._watch_url(self.season, 1),
+            {"action": "watch"},
         )
 
         self.assertEqual(response.status_code, 404)

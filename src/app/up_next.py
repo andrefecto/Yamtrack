@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from datetime import date, datetime, time
+from datetime import date, datetime
 
 from django.conf import settings
 from django.db.models import Max, Prefetch, Q
@@ -16,19 +16,21 @@ logger = logging.getLogger(__name__)
 # Episodes that aired this recently are flagged as new
 NEW_EPISODE_DAYS = 7
 
+# Released episodes listed per show; the rest are counted
+UP_NEXT_EPISODES = 3
+
 
 def get_up_next(user, today=None):
-    """Return the next released episode of each show being watched.
+    """Return the released episodes left to watch of each show being watched.
 
-    Shows are ordered by their latest activity first: the last watched episode
-    or the air date of the next episode, whichever is more recent. Shows with
-    nothing watched yet come last, ordered by title.
+    Shows are ordered by the most recently watched first. Shows with nothing
+    watched yet come last, ordered by title.
     """
     entries = _build_entries(Season.objects.filter(user=user), today)
 
     started = [entry for entry in entries if entry["last_watched_at"] is not None]
     not_started = [entry for entry in entries if entry["last_watched_at"] is None]
-    started.sort(key=lambda entry: entry["last_activity"], reverse=True)
+    started.sort(key=lambda entry: entry["last_watched_at"], reverse=True)
     not_started.sort(key=lambda entry: entry["season"].item.title.lower())
     return started + not_started
 
@@ -84,24 +86,10 @@ def _build_entries(seasons, today=None):
         for season in show_seasons:
             entry = build_up_next_entry(season, today)
             if entry is not None:
-                _add_activity(entry, last_watched_by_show.get(show_id), today)
+                entry["last_watched_at"] = last_watched_by_show.get(show_id)
                 entries.append(entry)
                 break
     return entries
-
-
-def _add_activity(entry, last_watched_at, today):
-    """Add show-level watch and air dates used for ordering and the new flag."""
-    aired_on = _parse_air_date(entry["air_date"])
-    entry["last_watched_at"] = last_watched_at
-    entry["is_new"] = aired_on is not None and (
-        (today - aired_on).days < NEW_EPISODE_DAYS
-    )
-
-    entry["last_activity"] = last_watched_at
-    if aired_on is not None and last_watched_at is not None:
-        aired_at = timezone.make_aware(datetime.combine(aired_on, time.min))
-        entry["last_activity"] = max(last_watched_at, aired_at)
 
 
 def _parse_air_date(air_date):
@@ -117,7 +105,12 @@ def _parse_air_date(air_date):
 
 
 def build_up_next_entry(season, today=None):
-    """Return the Up Next entry for a season, or None if nothing is ready."""
+    """Return the Up Next entry for a season, or None if nothing is ready.
+
+    The entry lists the season's released episodes from the next one to watch,
+    up to ``UP_NEXT_EPISODES``, and counts the released ones left after those.
+    """
+    today = today or timezone.localdate()
     try:
         season_metadata = services.get_media_metadata(
             MediaTypes.SEASON.value,
@@ -129,18 +122,38 @@ def build_up_next_entry(season, today=None):
         logger.warning("Could not load metadata for Up Next: %s", season)
         return None
 
-    episode = season.next_episode(season_metadata)
-    if episode is None:
+    next_episode = season.next_episode(season_metadata)
+    if next_episode is None:
         return None
 
-    # Manual entries usually have no air dates, so they are always ready
-    air_date = episode.get("air_date")
-    if season.item.source != Sources.MANUAL.value and not is_released_date(
-        air_date,
-        today,
-    ):
+    episodes = season_metadata["episodes"]
+    released = []
+    for episode in episodes[episodes.index(next_episode) :]:
+        # Manual entries usually have no air dates, so they are always ready
+        if season.item.source != Sources.MANUAL.value and not is_released_date(
+            episode.get("air_date"),
+            today,
+        ):
+            break
+        released.append(episode)
+    if not released:
         return None
 
+    return {
+        "season": season,
+        "episodes": [
+            _episode_row(season, episode, position, today)
+            for position, episode in enumerate(released[:UP_NEXT_EPISODES])
+        ],
+        "more_episodes": max(len(released) - UP_NEXT_EPISODES, 0),
+    }
+
+
+def _episode_row(season, episode, position, today):
+    """Return one episode row of an Up Next entry.
+
+    ``position`` is how many unwatched episodes come before it in the entry.
+    """
     # TMDB episodes have a still_path, manual episodes an image
     if episode.get("still_path"):
         image = tmdb.get_image_url(episode["still_path"])
@@ -149,19 +162,12 @@ def build_up_next_entry(season, today=None):
     if image == settings.IMG_NONE:
         image = season.item.image
 
+    aired_on = _parse_air_date(episode.get("air_date"))
     return {
-        "season": season,
         "episode_number": episode["episode_number"],
-        "episode_title": episode.get("name") or episode.get("title"),
-        "air_date": air_date,
+        "title": episode.get("name") or episode.get("title"),
+        "air_date": episode.get("air_date"),
         "image": image,
-        "remaining_episodes": _remaining_episodes(season_metadata, episode),
+        "is_new": aired_on is not None and (today - aired_on).days < NEW_EPISODE_DAYS,
+        "unwatched_before": position,
     }
-
-
-def _remaining_episodes(season_metadata, next_episode):
-    """Return how many episodes of the season are left, including the next one."""
-    episode_numbers = [
-        episode["episode_number"] for episode in season_metadata["episodes"]
-    ]
-    return len(episode_numbers) - episode_numbers.index(next_episode["episode_number"])

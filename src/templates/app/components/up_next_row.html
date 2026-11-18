@@ -8,47 +8,105 @@
 {% if entry %}
   {% with season=entry.season %}
     {% url 'media_details' source=season.item.source media_type=MediaTypes.TV.value media_id=season.item.media_id title=season.item.title|slug as show_url %}
-    {# Opens the show with this season expanded and the episode popup open #}
     {% with season_number=season.item.season_number|stringformat:"s" %}
-      {% with episode_number=entry.episode_number|stringformat:"s" %}
-        {% with season_url=show_url|add:"?season="|add:season_number|add:"&episode="|add:episode_number|add:"#season-slice-"|add:season_number %}
-          <div id="up-next-{{ season.related_tv.id }}"
-               class="flex items-center gap-3 rounded-lg bg-[#2a2f35] p-2 shadow-lg">
-            <a href="{{ season_url }}" class="shrink-0">
-              <img alt="{{ season }}"
-                   class="lazyload w-28 sm:w-40 aspect-video rounded-md {% if entry.image != IMG_NONE %}object-cover{% endif %}"
-                   data-src="{{ entry.image }}"
-                   src="{{ IMG_NONE }}">
-            </a>
+      <div id="up-next-{{ season.related_tv.id }}" class="space-y-2">
+        {% for episode in entry.episodes %}
+          {# Opens the show with this season expanded and the episode popup open #}
+          {% with episode_number=episode.episode_number|stringformat:"s" %}
+            {% with season_url=show_url|add:"?season="|add:season_number|add:"&episode="|add:episode_number|add:"#season-slice-"|add:season_number %}
+              {% url 'up_next_watch' season.id episode.episode_number as watch_url %}
+              <div class="rounded-lg bg-[#2a2f35] p-2 shadow-lg"
+                   x-data="{ asking: false }">
+                <div class="flex items-center gap-3">
+                  <a href="{{ season_url }}" class="shrink-0">
+                    <img alt="{{ season }}"
+                         class="lazyload w-28 sm:w-40 aspect-video rounded-md {% if episode.image != IMG_NONE %}object-cover{% endif %}"
+                         data-src="{{ episode.image }}"
+                         src="{{ IMG_NONE }}">
+                  </a>
 
-            <a href="{{ season_url }}" class="min-w-0 flex-1 space-y-1">
-              <span class="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-400 px-2 py-0.5 text-xs font-semibold uppercase text-gray-100">
-                <span class="truncate">{{ season.item.title }}</span>
-                {% include "app/icons/chevron-right.svg" with classes="w-3 h-3 shrink-0" %}
-              </span>
-              <p class="flex items-center gap-2 font-semibold text-gray-100">
-                S{{ season.item.season_number|stringformat:"02d" }} | E{{ entry.episode_number|stringformat:"02d" }}
-                {% if entry.is_new %}
-                  <span class="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-white">{% trans "New" %}</span>
+                  <a href="{{ season_url }}" class="min-w-0 flex-1 space-y-1">
+                    <span class="inline-flex max-w-full items-center gap-1 rounded-full border border-gray-400 px-2 py-0.5 text-xs font-semibold uppercase text-gray-100">
+                      <span class="truncate">{{ season.item.title }}</span>
+                      {% include "app/icons/chevron-right.svg" with classes="w-3 h-3 shrink-0" %}
+                    </span>
+                    <p class="flex items-center gap-2 font-semibold text-gray-100">
+                      S{{ season.item.season_number|stringformat:"02d" }} | E{{ episode.episode_number|stringformat:"02d" }}
+                      {% if episode.is_new %}
+                        <span class="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-white">{% trans "New" %}</span>
+                      {% endif %}
+                    </p>
+                    {% if episode.title %}<p class="truncate text-sm text-gray-300">{{ episode.title }}</p>{% endif %}
+                  </a>
+
+                  {% if episode.unwatched_before %}
+                    <button type="button"
+                            class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer"
+                            title="{% trans 'Mark as watched' %}"
+                            @click="asking = !asking">
+                      {% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}
+                    </button>
+                  {% else %}
+                    <button type="button"
+                            class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
+                            title="{% trans 'Mark as watched' %}"
+                            hx-post="{{ watch_url }}"
+                            hx-vals='{"action": "watch"}'
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                            hx-target="#up-next-{{ season.related_tv.id }}"
+                            hx-swap="outerHTML"
+                            hx-disabled-elt="this">
+                      {% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}
+                    </button>
+                  {% endif %}
+                </div>
+
+                {% if episode.unwatched_before %}
+                  {# Ticking a later episode offers to mark the earlier ones too #}
+                  <div class="mt-2 flex flex-wrap items-center justify-end gap-2 text-sm"
+                       x-show="asking"
+                       x-cloak>
+                    <span class="w-full text-right text-gray-300">
+                      {% blocktrans trimmed count count=episode.unwatched_before %}
+                        Also mark the earlier episode as watched?
+                      {% plural %}
+                        Also mark the {{ count }} earlier episodes as watched?
+                      {% endblocktrans %}
+                    </span>
+                    <button type="button"
+                            class="rounded-md bg-gray-600 px-3 py-1.5 text-gray-100 hover:bg-gray-500 cursor-pointer disabled:opacity-50"
+                            hx-post="{{ watch_url }}"
+                            hx-vals='{"action": "watch"}'
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                            hx-target="#up-next-{{ season.related_tv.id }}"
+                            hx-swap="outerHTML"
+                            hx-disabled-elt="this">{% trans "Just this one" %}</button>
+                    <button type="button"
+                            class="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 cursor-pointer disabled:opacity-50"
+                            hx-post="{{ watch_url }}"
+                            hx-vals='{"action": "watch_with_previous"}'
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                            hx-target="#up-next-{{ season.related_tv.id }}"
+                            hx-swap="outerHTML"
+                            hx-disabled-elt="this">{% trans "Yes" %}</button>
+                  </div>
                 {% endif %}
-              </p>
-              {% if entry.episode_title %}<p class="truncate text-sm text-gray-300">{{ entry.episode_title }}</p>{% endif %}
-              <p class="text-xs text-gray-500">
-                {% blocktrans count remaining=entry.remaining_episodes %}{{ remaining }} episode left in season{% plural %}{{ remaining }} episodes left in season{% endblocktrans %}
-              </p>
-            </a>
+              </div>
+            {% endwith %}
+          {% endwith %}
+        {% endfor %}
 
-            <button type="button"
-                    class="shrink-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-500 text-indigo-400 transition-colors hover:bg-indigo-600 hover:text-white cursor-pointer disabled:opacity-50"
-                    title="{% trans 'Mark as watched' %}"
-                    hx-post="{% url 'up_next_watch' season.id %}"
-                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                    hx-target="#up-next-{{ season.related_tv.id }}"
-                    hx-swap="outerHTML"
-                    hx-disabled-elt="this">{% include "app/icons/checkmark.svg" with classes="w-6 h-6" %}</button>
-          </div>
-        {% endwith %}
-      {% endwith %}
+        {% if entry.more_episodes %}
+          <a href="{{ show_url }}?season={{ season_number }}#season-slice-{{ season_number }}"
+             class="block text-right text-sm text-indigo-400 hover:text-indigo-300">
+            {% blocktrans trimmed count count=entry.more_episodes %}
+              +{{ count }} more episode
+            {% plural %}
+              +{{ count }} more episodes
+            {% endblocktrans %}
+          </a>
+        {% endif %}
+      </div>
     {% endwith %}
   {% endwith %}
 {% endif %}
