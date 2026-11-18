@@ -147,6 +147,34 @@ class SeasonSlicesTests(TestCase):
         self.assertContains(response, "{ tab: 'overview' }")
         self.assertContains(response, '<h1 class="text-3xl')
 
+    def test_season_page_redirects_to_show(self):
+        """Test the season page opens the show's slice in the mode."""
+        url = reverse(
+            "season_details",
+            kwargs={
+                "source": Sources.TMDB.value,
+                "media_id": "100",
+                "title": "show-a",
+                "season_number": 1,
+            },
+        )
+
+        response = self.client.get(url)
+        self.assertRedirects(
+            response,
+            "/details/tmdb/tv/100/show-a?season=1#season-slice-1",
+            fetch_redirect_response=False,
+        )
+
+        # The slice's Season details link still reaches the season page
+        response = self.client.get(url + "?full=1")
+        self.assertEqual(response.status_code, 200)
+
+        self.user.show_tracker_mode = False
+        self.user.save()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
     def test_season_slice_lists_episodes(self):
         """Test expanding a slice lists the episodes with checkboxes."""
         response = self.client.get(

@@ -536,8 +536,28 @@ def _render_season_slice(
 
 
 @require_GET
-def season_details(request, source, media_id, title, season_number):  # noqa: ARG001 For URL
+def season_details(request, source, media_id, title, season_number):
     """Return the details page for a season."""
+    # Show tracker mode opens seasons as slices on the show page. The slice's
+    # Season details link passes full=1 to still reach this page.
+    if (
+        request.user.is_authenticated
+        and request.user.show_tracker_mode
+        and not request.GET.get("full")
+    ):
+        show_url = reverse(
+            "media_details",
+            kwargs={
+                "source": source,
+                "media_type": MediaTypes.TV.value,
+                "media_id": media_id,
+                "title": title,
+            },
+        )
+        return redirect(
+            f"{show_url}?season={season_number}#season-slice-{season_number}",
+        )
+
     tv_with_seasons_metadata = services.get_media_metadata(
         "tv_with_seasons",
         media_id,

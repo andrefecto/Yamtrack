@@ -68,7 +68,7 @@
             {% include "app/components/season_slice_episode.html" %}
           {% endfor %}
         </ul>
-        <a href="{{ data|media_url }}"
+        <a href="{{ data|media_url }}?full=1"
            class="flex items-center justify-center gap-1 border-t border-[#343a40] px-4 py-3 text-sm text-indigo-400 hover:text-indigo-300">
           {% trans "Season details" %}
           {% include "app/icons/chevron-right.svg" with classes="w-4 h-4" %}
